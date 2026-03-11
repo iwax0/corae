@@ -54,7 +54,6 @@ import Medications from './pages/Medications';
 import Today from './pages/Today';
 import __Layout from './Layout.jsx';
 
-
 export const PAGES = {
     "CalendarPage": CalendarPage,
     "Diary": Diary,

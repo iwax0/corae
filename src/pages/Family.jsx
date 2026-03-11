@@ -28,6 +28,7 @@ function FamilyContent() {
     selectPatient,
     refreshPatients,
     loading: appLoading,
+    logout,
   } = useApp();
 
   const [members, setMembers] = useState([]);
@@ -75,6 +76,16 @@ function FamilyContent() {
     setLoading(true);
 
     try {
+      const changesQuery = activePatient?.id
+  ? supabase
+      .from("medication_changes")
+      .select("*")
+      .eq("family_id", family.id)
+      .eq("patient_id", activePatient.id)
+      .eq("status", "pending")
+      .order("id", { ascending: false })
+  : Promise.resolve({ data: [], error: null });
+  
       const [memsRes, chgsRes] = await Promise.all([
         supabase
           .from("family_members")
@@ -86,7 +97,7 @@ function FamilyContent() {
           .from("medication_changes")
           .select("*")
           .eq("family_id", family.id)
-          .eq("patient_id", activePatient.id)
+          .eq("patient_id", activePatient?.id || null)
           .eq("status", "pending")
           .order("id", { ascending: false }),
       ]);
@@ -339,36 +350,27 @@ function FamilyContent() {
     }
   }
 
-  async function handleLogout() {
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      async function handleLogout() {
+        try {
+          await logout();
+          navigate("/", { replace: true });
+        } catch (err) {
+          console.error("Erro ao sair:", err);
+          alert(err?.message || "Erro ao sair da conta.");
+        }
+      }
 
-      navigate("/", { replace: true });
-    } catch (err) {
-      console.error("Erro ao sair:", err);
-      alert(err?.message || "Erro ao sair da conta.");
+    if (appLoading) {
+      return <div style={{ padding: 20, color: "#000" }}>Carregando app...</div>;
     }
-  }
 
-  if (appLoading) {
-    return (
-      <div className="flex justify-center py-10">
-        <div
-          className="w-7 h-7 rounded-full border-2 border-t-transparent animate-spin"
-          style={{ borderColor: "var(--sage)" }}
-        />
-      </div>
-    );
-  }
+    if (!user) {
+      return <div style={{ padding: 20, color: "#000" }}>Sem usuário</div>;
+    }
 
-  if (!user) {
-    return <Navigate to="/" replace />;
-  }
-
-  if (!family) {
-    return null;
-  }
+    if (!family) {
+      return <div style={{ padding: 20, color: "#000" }}>Sem família</div>;
+    }
 
   return (
     <div className="p-4 space-y-5">
@@ -378,6 +380,35 @@ function FamilyContent() {
       >
         Família
       </h1>
+
+      <div
+        className="p-4 rounded-2xl bg-white"
+        style={{ border: "1px solid var(--border)" }}
+      >
+        <p
+          className="text-xs font-medium mb-1"
+          style={{ color: "var(--text-secondary)" }}
+        >
+          Conta conectada
+        </p>
+
+        <p
+          className="text-sm font-semibold"
+          style={{ color: "var(--text-primary)" }}
+        >
+          {user?.user_metadata?.full_name ||
+            user?.user_metadata?.name ||
+            member?.user_name ||
+            "Usuário"}
+        </p>
+
+        <p
+          className="text-xs mt-1"
+          style={{ color: "var(--text-secondary)" }}
+        >
+          {user?.email || "E-mail não disponível"}
+        </p>
+      </div>
 
       <div
         className="p-4 rounded-2xl bg-white"

@@ -13,7 +13,38 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     initialize();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") {
+        clearAppState();
+        setLoading(false);
+        return;
+      }
+
+      if (
+        event === "SIGNED_IN" ||
+        event === "TOKEN_REFRESHED" ||
+        event === "USER_UPDATED" ||
+        event === "INITIAL_SESSION"
+      ) {
+        initialize();
+      }
+    });
+
+    return () => {
+      subscription?.unsubscribe();
+    };
   }, []);
+
+  function clearAppState() {
+    setUser(null);
+    setFamily(null);
+    setMember(null);
+    setPatients([]);
+    setActivePatient(null);
+  }
 
   async function initialize() {
     setLoading(true);
@@ -29,17 +60,13 @@ export function AppProvider({ children }) {
       const authUser = session?.user || null;
 
       if (!authUser) {
-        setUser(null);
-        setFamily(null);
-        setMember(null);
-        setPatients([]);
-        setActivePatient(null);
+        clearAppState();
         return;
       }
 
       const normalizedUser = {
         id: authUser.id,
-        email: authUser.email,
+        email: authUser.email?.trim().toLowerCase() || null,
         full_name:
           authUser.user_metadata?.full_name ||
           authUser.user_metadata?.name ||
@@ -47,22 +74,23 @@ export function AppProvider({ children }) {
       };
 
       setUser(normalizedUser);
-
       await loadFamilyData(normalizedUser);
     } catch (err) {
       console.error("Erro ao inicializar AppContext:", err);
-      setUser(null);
-      setFamily(null);
-      setMember(null);
-      setPatients([]);
-      setActivePatient(null);
+      clearAppState();
     } finally {
       setLoading(false);
     }
   }
 
   async function loadFamilyData(currentUser = user) {
-    if (!currentUser?.email) return;
+    if (!currentUser?.email) {
+      setMember(null);
+      setFamily(null);
+      setPatients([]);
+      setActivePatient(null);
+      return;
+    }
 
     try {
       const normalizedEmail = currentUser.email.trim().toLowerCase();
@@ -104,33 +132,19 @@ export function AppProvider({ children }) {
       if (patientsError) throw patientsError;
 
       const activePatients = patientsData || [];
+      const nextActivePatient = activePatients[0] || null;
+
       setPatients(activePatients);
+      setActivePatient(nextActivePatient);
 
-      let nextActivePatient = null;
-
-      setActivePatient((prev) => {
-        if (prev?.id) {
-          const stillExists = activePatients.find((p) => p.id === prev.id);
-          if (stillExists) {
-            nextActivePatient = stillExists;
-            return stillExists;
-          }
-        }
-
-        nextActivePatient = activePatients[0] || null;
-        return nextActivePatient;
-      });
-
-      const resolvedActivePatient =
-        nextActivePatient ||
-        activePatients.find((p) => p.id === activePatient?.id) ||
-        activePatients[0] ||
-        null;
-
-      setFamily({
-        ...familyData,
-        patient_name: resolvedActivePatient?.name || null,
-      });
+      setFamily(
+        familyData
+          ? {
+              ...familyData,
+              patient_name: nextActivePatient?.name || null,
+            }
+          : null
+      );
     } catch (err) {
       console.error("Erro ao carregar dados da família:", err);
       setMember(null);
@@ -158,30 +172,19 @@ export function AppProvider({ children }) {
       if (error) throw error;
 
       const activePatients = data || [];
+      const nextActivePatient = activePatients[0] || null;
+
       setPatients(activePatients);
+      setActivePatient(nextActivePatient);
 
-      let nextActivePatient = null;
-
-      setActivePatient((prev) => {
-        if (prev?.id) {
-          const stillExists = activePatients.find((p) => p.id === prev.id);
-          if (stillExists) {
-            nextActivePatient = stillExists;
-            return stillExists;
-          }
-        }
-
-        nextActivePatient = activePatients[0] || null;
-        return nextActivePatient;
-      });
-
-      setFamily((prev) => ({
-        ...prev,
-        patient_name:
-          nextActivePatient?.name ||
-          activePatients[0]?.name ||
-          null,
-      }));
+      setFamily((prev) =>
+        prev
+          ? {
+              ...prev,
+              patient_name: nextActivePatient?.name || null,
+            }
+          : null
+      );
     } catch (err) {
       console.error("Erro ao atualizar pacientes:", err);
     }
@@ -190,10 +193,19 @@ export function AppProvider({ children }) {
   function selectPatient(patient) {
     setActivePatient(patient || null);
 
-    setFamily((prev) => ({
-      ...prev,
-      patient_name: patient?.name || null,
-    }));
+    setFamily((prev) =>
+      prev
+        ? {
+            ...prev,
+            patient_name: patient?.name || null,
+          }
+        : null
+    );
+  }
+
+  async function logout() {
+    await supabase.auth.signOut();
+    clearAppState();
   }
 
   const value = useMemo(
@@ -213,6 +225,7 @@ export function AppProvider({ children }) {
       refreshFamily,
       refreshPatients,
       initialize,
+      logout,
     }),
     [user, family, member, patients, activePatient, loading]
   );

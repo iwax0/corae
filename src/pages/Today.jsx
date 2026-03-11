@@ -16,6 +16,7 @@ import { useApp } from "@/lib/AuthContext";
 import FAB from "@/components/corae/FAB";
 import ObservationModal from "@/components/corae/ObservationModal";
 import { Link } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 
 function TodayContent() {
@@ -611,5 +612,15 @@ function TodayContent() {
 }
 
 export default function Today() {
+  const { user, loading } = useApp();
+
+  if (loading) {
+    return <div>Carregando...</div>;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
   return <TodayContent />;
 }
