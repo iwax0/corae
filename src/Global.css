@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --sage: #7B9E87;
+  --sage-light: #E8F0EA;
+  --sage-dark: #5A7A66;
+  --warm: #F5F0EA;
+  --warm-dark: #EDE5D8;
+  --text-primary: #1A1A1A;
+  --text-secondary: #6B6B6B;
+  --border: #E5E0D8;
+  --error: #C5584A;
+  --warning: #D4882A;
+  --success: #4A8C6F;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--warm);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+}
+
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
