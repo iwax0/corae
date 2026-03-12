@@ -59,6 +59,9 @@ function AppRoutes() {
         element={user ? <Navigate to="/home" replace /> : <Login />}
       />
 
+      <Route path={`/${mainPageKey}`} element={<Navigate to="/home" replace />} />
+      <Route path="/today" element={<Navigate to="/home" replace />} />
+
       <Route
         path="/home"
         element={

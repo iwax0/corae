@@ -49,7 +49,7 @@ export default function Login() {
 
     await initialize();
     setLoading(false);
-    navigate("/", { replace: true });
+    navigate("/home", { replace: true });
   }
 
   if (checking) {

@@ -353,7 +353,7 @@ function FamilyContent() {
       async function handleLogout() {
         try {
           await logout();
-          navigate("/", { replace: true });
+          navigate("/home", { replace: true });
         } catch (err) {
           console.error("Erro ao sair:", err);
           alert(err?.message || "Erro ao sair da conta.");
