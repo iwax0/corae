@@ -16,7 +16,7 @@ import { useApp } from "@/lib/AuthContext";
 import PinModal from "@/components/corae/PinModal";
 
 function DiaryContent() {
-  const { family, member } = useApp();
+  const { family, member, activePatient } = useApp();
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showMarkIncorrect, setShowMarkIncorrect] = useState(null);
@@ -24,11 +24,11 @@ function DiaryContent() {
   const [incorrectReason, setIncorrectReason] = useState("");
 
   useEffect(() => {
-    if (family?.id) loadRecords();
-  }, [family]);
+    if (family?.id && activePatient?.id) loadRecords();
+  }, [family, activePatient]);
 
   async function loadRecords() {
-    if (!family?.id) return;
+    if (!family?.id || !activePatient?.id) return;
 
     setLoading(true);
 

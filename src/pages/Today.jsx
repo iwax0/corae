@@ -16,7 +16,6 @@ import { useApp } from "@/lib/AuthContext";
 import FAB from "@/components/corae/FAB";
 import ObservationModal from "@/components/corae/ObservationModal";
 import { Link } from "react-router-dom";
-import { Navigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 
 function TodayContent() {
@@ -86,9 +85,9 @@ function TodayContent() {
           .select("*")
           .eq("family_id", family.id)
           .eq("patient_id", activePatient.id)
-          .gte("appointment_date", todayStart.toISOString())
-          .lte("appointment_date", todayEnd.toISOString())
-          .order("appointment_date", { ascending: true }),
+          .gte("datetime", todayStart.toISOString())
+          .lte("datetime", todayEnd.toISOString())
+          .order("datetime", { ascending: true })
       ]);
 
       if (medsRes.error) throw medsRes.error;
@@ -612,15 +611,5 @@ function TodayContent() {
 }
 
 export default function Today() {
-  const { user, loading } = useApp();
-
-  if (loading) {
-    return <div>Carregando...</div>;
-  }
-
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
-
   return <TodayContent />;
 }

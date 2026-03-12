@@ -21,18 +21,22 @@ import {
 import { useApp } from "@/lib/AuthContext";
 
 function CalendarContent() {
-  const { user, family } = useApp();
+  const { user, family, member, activePatient } = useApp();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [appointments, setAppointments] = useState([]);
   const [selectedDay, setSelectedDay] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (family?.id) loadAppointments();
-  }, [family]);
+    useEffect(() => {
+      if (family?.id && activePatient?.id) {
+        loadAppointments();
+      }
+    }, [family, activePatient]);
 
   async function loadAppointments() {
+    if (!family?.id || !activePatient?.id) return;
+
     setLoading(true);
 
     try {
@@ -226,16 +230,17 @@ function CalendarContent() {
       )}
 
       {showForm && (
-        <AppointmentForm
-          family={family}
-          user={user}
-          defaultDate={selectedDay}
-          onClose={() => setShowForm(false)}
-          onSaved={() => {
-            setShowForm(false);
-            loadAppointments();
-          }}
-        />
+          <AppointmentForm
+            family={family}
+            user={user}
+            activePatient={activePatient}
+            defaultDate={selectedDay}
+            onClose={() => setShowForm(false)}
+            onSaved={() => {
+              setShowForm(false);
+              loadAppointments();
+            }}
+          />
       )}
     </div>
   );
@@ -290,7 +295,7 @@ function AppointmentCard({ appointment }) {
   );
 }
 
-function AppointmentForm({ family, user, defaultDate, onClose, onSaved }) {
+function AppointmentForm({ family, user, activePatient, defaultDate, onClose, onSaved }) {
   const [specialty, setSpecialty] = useState("");
   const [date, setDate] = useState(
     defaultDate
@@ -303,7 +308,7 @@ function AppointmentForm({ family, user, defaultDate, onClose, onSaved }) {
   const [loading, setLoading] = useState(false);
 
   async function handleSave() {
-    if (!specialty.trim()) return;
+    if (!specialty.trim() || !family?.id || !activePatient?.id || !user) return;
 
     setLoading(true);
 
@@ -313,7 +318,7 @@ function AppointmentForm({ family, user, defaultDate, onClose, onSaved }) {
       const { error: apptError } = await supabase.from("appointments").insert([
         {
           family_id: family.id,
-          patient_id: null,
+          patient_id: activePatient.id,
           specialty: specialty.trim(),
           datetime,
           location: location.trim() || null,
@@ -326,6 +331,7 @@ function AppointmentForm({ family, user, defaultDate, onClose, onSaved }) {
       const { error: logError } = await supabase.from("care_records").insert([
         {
           family_id: family.id,
+          patient_id: activePatient.id,
           record_type: "appointment",
           actual_time: new Date().toISOString(),
           recorded_by_name: user.full_name || user.email,
