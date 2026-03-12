@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import {
   Crown,
@@ -353,7 +353,7 @@ function FamilyContent() {
       async function handleLogout() {
         try {
           await logout();
-          navigate("/home", { replace: true });
+          navigate("/", { replace: true });
         } catch (err) {
           console.error("Erro ao sair:", err);
           alert(err?.message || "Erro ao sair da conta.");

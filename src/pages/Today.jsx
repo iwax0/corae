@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { format, parseISO, isToday } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
   Clock,
@@ -10,6 +10,9 @@ import {
   Loader2,
   Pill,
   FileText,
+  ChevronDown,
+  X,
+  Check,
 } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { useApp } from "@/lib/AuthContext";
@@ -19,7 +22,14 @@ import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 
 function TodayContent() {
-  const { user, family, loading, activePatient, patients } = useApp();
+  const {
+    user,
+    family,
+    loading,
+    activePatient,
+    patients,
+    selectPatient,
+  } = useApp();
 
   const [medications, setMedications] = useState([]);
   const [todayRecords, setTodayRecords] = useState([]);
@@ -28,6 +38,7 @@ function TodayContent() {
   const [registerError, setRegisterError] = useState("");
   const [pageLoading, setPageLoading] = useState(true);
   const [showObservationModal, setShowObservationModal] = useState(false);
+  const [showPatientPicker, setShowPatientPicker] = useState(false);
 
   useEffect(() => {
     if (!loading) {
@@ -36,15 +47,7 @@ function TodayContent() {
   }, [loading, family?.id, activePatient?.id]);
 
   async function loadData() {
-    if (!family?.id) {
-      setMedications([]);
-      setTodayRecords([]);
-      setAppointments([]);
-      setPageLoading(false);
-      return;
-    }
-
-    if (!activePatient?.id) {
+    if (!family?.id || !activePatient?.id) {
       setMedications([]);
       setTodayRecords([]);
       setAppointments([]);
@@ -87,7 +90,7 @@ function TodayContent() {
           .eq("patient_id", activePatient.id)
           .gte("datetime", todayStart.toISOString())
           .lte("datetime", todayEnd.toISOString())
-          .order("datetime", { ascending: true })
+          .order("datetime", { ascending: true }),
       ]);
 
       if (medsRes.error) throw medsRes.error;
@@ -108,28 +111,29 @@ function TodayContent() {
   }
 
   function getMedicationScheduleLabel(medication) {
-  if (!medication) return "Sem horário";
+    if (!medication) return "Sem horário";
 
-  if (medication.type === "fixed") {
-    const times = Array.isArray(medication.fixed_times)
-      ? medication.fixed_times
-      : [];
-    return times.length ? times.join(", ") : "Sem horário definido";
+    if (medication.type === "fixed") {
+      const times = Array.isArray(medication.fixed_times)
+        ? medication.fixed_times
+        : [];
+      return times.length ? times.join(", ") : "Sem horário definido";
+    }
+
+    if (medication.type === "interval") {
+      return medication.interval_hours
+        ? `A cada ${medication.interval_hours}h`
+        : "Intervalo não definido";
+    }
+
+    return "Sem horário";
   }
-
-  if (medication.type === "interval") {
-    return medication.interval_hours
-      ? `A cada ${medication.interval_hours}h`
-      : "Intervalo não definido";
-  }
-
-  return "Sem horário";
-}
 
   function wasMedicationTakenToday(medication) {
     return todayRecords.some(
       (record) =>
-        record.record_type === "medication" &&
+        (record.record_type === "medication" ||
+          record.record_type === "administered") &&
         record.medication_id === medication.id
     );
   }
@@ -179,11 +183,6 @@ function TodayContent() {
     }
   }
 
-  function formatHour(value) {
-    if (!value) return "--:--";
-    return value.slice(0, 5);
-  }
-
   function formatDateTime(value) {
     if (!value) return "";
     try {
@@ -191,6 +190,11 @@ function TodayContent() {
     } catch {
       return value;
     }
+  }
+
+  function handleSelectPatient(patient) {
+    selectPatient(patient);
+    setShowPatientPicker(false);
   }
 
   if (loading || pageLoading) {
@@ -210,7 +214,10 @@ function TodayContent() {
       <div className="p-4">
         <div
           className="p-4 rounded-2xl bg-white text-sm"
-          style={{ border: "1px solid var(--border)", color: "var(--text-secondary)" }}
+          style={{
+            border: "1px solid var(--border)",
+            color: "var(--text-secondary)",
+          }}
         >
           Nenhuma família encontrada.
         </div>
@@ -239,7 +246,8 @@ function TodayContent() {
             Nenhum paciente ativo
           </p>
           <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-            Adicione um paciente na tela Família para começar a registrar cuidados.
+            Adicione um paciente na tela Família para começar a registrar
+            cuidados.
           </p>
         </div>
       </div>
@@ -283,12 +291,26 @@ function TodayContent() {
         >
           Hoje
         </h1>
-        <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-          Acompanhando{" "}
-          <span className="font-medium" style={{ color: "var(--text-primary)" }}>
-            {activePatient.name}
-          </span>
-        </p>
+
+        <div className="mt-2 flex items-center gap-2">
+          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+            Acompanhando
+          </p>
+
+          <button
+            type="button"
+            onClick={() => setShowPatientPicker(true)}
+            className="flex items-center gap-1 rounded-full px-3 py-1.5 transition"
+            style={{
+              background: "var(--warm)",
+              border: "1px solid var(--border)",
+              color: "var(--text-primary)",
+            }}
+          >
+            <span className="text-sm font-medium">{activePatient.name}</span>
+            <ChevronDown size={16} />
+          </button>
+        </div>
       </div>
 
       <div
@@ -297,47 +319,44 @@ function TodayContent() {
       >
         <div className="flex items-center gap-2 mb-2">
           <Heart size={18} style={{ color: "var(--sage-dark)" }} />
-          <p
-            className="font-medium"
-            style={{ color: "var(--text-primary)" }}
-          >
+          <p className="font-medium" style={{ color: "var(--text-primary)" }}>
             Resumo do dia
           </p>
         </div>
 
         <div className="grid grid-cols-3 gap-3 mt-3">
-          <div
-            className="rounded-xl p-3"
-            style={{ background: "var(--warm)" }}
-          >
+          <div className="rounded-xl p-3" style={{ background: "var(--warm)" }}>
             <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
               Medicações
             </p>
-            <p className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
+            <p
+              className="text-lg font-semibold"
+              style={{ color: "var(--text-primary)" }}
+            >
               {medications.length}
             </p>
           </div>
 
-          <div
-            className="rounded-xl p-3"
-            style={{ background: "var(--warm)" }}
-          >
+          <div className="rounded-xl p-3" style={{ background: "var(--warm)" }}>
             <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
               Registros
             </p>
-            <p className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
+            <p
+              className="text-lg font-semibold"
+              style={{ color: "var(--text-primary)" }}
+            >
               {todayRecords.length}
             </p>
           </div>
 
-          <div
-            className="rounded-xl p-3"
-            style={{ background: "var(--warm)" }}
-          >
+          <div className="rounded-xl p-3" style={{ background: "var(--warm)" }}>
             <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
               Consultas
             </p>
-            <p className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
+            <p
+              className="text-lg font-semibold"
+              style={{ color: "var(--text-primary)" }}
+            >
               {appointments.length}
             </p>
           </div>
@@ -396,7 +415,7 @@ function TodayContent() {
                       style={{ color: "var(--text-secondary)" }}
                     >
                       <Clock size={13} />
-                        {getMedicationScheduleLabel(medication)}
+                      {getMedicationScheduleLabel(medication)}
                     </div>
                   </div>
 
@@ -418,7 +437,9 @@ function TodayContent() {
                       className="h-10 px-4 rounded-xl text-sm font-medium text-white"
                       style={{ background: "var(--sage-dark)" }}
                     >
-                      {registeringId === medication.id ? "Salvando..." : "Registrar"}
+                      {registeringId === medication.id
+                        ? "Salvando..."
+                        : "Registrar"}
                     </button>
                   )}
                 </div>
@@ -455,7 +476,7 @@ function TodayContent() {
           </p>
 
           <Link
-            to={createPageUrl("Appointments")}
+            to={createPageUrl("CalendarPage")}
             className="text-sm font-medium"
             style={{ color: "var(--sage-dark)" }}
           >
@@ -477,19 +498,19 @@ function TodayContent() {
                     className="font-medium"
                     style={{ color: "var(--text-primary)" }}
                   >
-                    {appointment.title || "Consulta"}
+                    {appointment.specialty || "Consulta"}
                   </p>
                   <p
                     className="text-sm mt-1"
                     style={{ color: "var(--text-secondary)" }}
                   >
-                    {appointment.professional_name || appointment.location || "Sem detalhes"}
+                    {appointment.location || "Sem local informado"}
                   </p>
                   <p
                     className="text-xs mt-1"
                     style={{ color: "var(--text-secondary)" }}
                   >
-                    {formatDateTime(appointment.appointment_date)}
+                    {formatDateTime(appointment.datetime)}
                   </p>
                 </div>
               </div>
@@ -525,7 +546,7 @@ function TodayContent() {
           </p>
 
           <Link
-            to={createPageUrl("Records")}
+            to={createPageUrl("Diary")}
             className="text-sm font-medium"
             style={{ color: "var(--sage-dark)" }}
           >
@@ -605,6 +626,68 @@ function TodayContent() {
             await loadData();
           }}
         />
+      )}
+
+      {showPatientPicker && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm">
+          <div className="w-full max-w-sm bg-white rounded-t-3xl p-6 pb-8 max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-5">
+              <h2
+                className="text-lg font-semibold"
+                style={{ color: "var(--text-primary)" }}
+              >
+                Selecionar paciente
+              </h2>
+
+              <button onClick={() => setShowPatientPicker(false)}>
+                <X size={20} style={{ color: "var(--text-secondary)" }} />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {patients.map((patient) => {
+                const isSelected = activePatient?.id === patient.id;
+
+                return (
+                  <button
+                    key={patient.id}
+                    type="button"
+                    onClick={() => handleSelectPatient(patient)}
+                    className="w-full p-4 rounded-2xl flex items-center justify-between text-left transition"
+                    style={{
+                      border: isSelected
+                        ? "1px solid var(--sage-dark)"
+                        : "1px solid var(--border)",
+                      background: isSelected ? "var(--sage-light)" : "white",
+                    }}
+                  >
+                    <div>
+                      <p
+                        className="font-medium"
+                        style={{ color: "var(--text-primary)" }}
+                      >
+                        {patient.name}
+                      </p>
+
+                      {patient.birth_date && (
+                        <p
+                          className="text-xs mt-1"
+                          style={{ color: "var(--text-secondary)" }}
+                        >
+                          {patient.birth_date}
+                        </p>
+                      )}
+                    </div>
+
+                    {isSelected ? (
+                      <Check size={18} style={{ color: "var(--sage-dark)" }} />
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
