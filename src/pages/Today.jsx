@@ -20,6 +20,7 @@ import FAB from "@/components/corae/FAB";
 import ObservationModal from "@/components/corae/ObservationModal";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import RegisterMedModal from "@/components/corae/RegisterMedModal";
 
 function TodayContent() {
   const {
@@ -34,11 +35,14 @@ function TodayContent() {
   const [medications, setMedications] = useState([]);
   const [todayRecords, setTodayRecords] = useState([]);
   const [appointments, setAppointments] = useState([]);
-  const [registeringId, setRegisteringId] = useState(null);
+  const [nextDoses, setNextDoses] = useState([]);
   const [registerError, setRegisterError] = useState("");
   const [pageLoading, setPageLoading] = useState(true);
   const [showObservationModal, setShowObservationModal] = useState(false);
+  const [showBloodPressureModal, setShowBloodPressureModal] = useState(false);
+  const [showRegisterMedModal, setShowRegisterMedModal] = useState(false);
   const [showPatientPicker, setShowPatientPicker] = useState(false);
+  const [selectedMedicationForModal, setSelectedMedicationForModal] = useState(null);
 
   useEffect(() => {
     if (!loading) {
@@ -51,6 +55,7 @@ function TodayContent() {
       setMedications([]);
       setTodayRecords([]);
       setAppointments([]);
+      setNextDoses([]);
       setPageLoading(false);
       return;
     }
@@ -65,7 +70,7 @@ function TodayContent() {
       const todayEnd = new Date();
       todayEnd.setHours(23, 59, 59, 999);
 
-      const [medsRes, recordsRes, apptsRes] = await Promise.all([
+      const [medsRes, recordsRes, apptsRes, nextDosesRes] = await Promise.all([
         supabase
           .from("medications")
           .select("*")
@@ -91,20 +96,31 @@ function TodayContent() {
           .gte("datetime", todayStart.toISOString())
           .lte("datetime", todayEnd.toISOString())
           .order("datetime", { ascending: true }),
+
+        supabase
+          .from("next_doses")
+          .select("*")
+          .eq("family_id", family.id)
+          .eq("patient_id", activePatient.id)
+          .eq("status", "pendente")
+          .order("due_at", { ascending: true }),
       ]);
 
       if (medsRes.error) throw medsRes.error;
       if (recordsRes.error) throw recordsRes.error;
       if (apptsRes.error) throw apptsRes.error;
+      if (nextDosesRes.error) throw nextDosesRes.error;
 
       setMedications(medsRes.data || []);
       setTodayRecords(recordsRes.data || []);
       setAppointments(apptsRes.data || []);
+      setNextDoses(nextDosesRes.data || []);
     } catch (err) {
       console.error("Erro ao carregar Today:", err);
       setMedications([]);
       setTodayRecords([]);
       setAppointments([]);
+      setNextDoses([]);
     } finally {
       setPageLoading(false);
     }
@@ -130,57 +146,38 @@ function TodayContent() {
   }
 
   function wasMedicationTakenToday(medication) {
-    return todayRecords.some(
-      (record) =>
-        (record.record_type === "medication" ||
-          record.record_type === "administered") &&
-        record.medication_id === medication.id
-    );
+    return todayRecords.some((record) => {
+      const detailsMedicationId = record?.details?.medication_id;
+
+      return (
+        record.record_type === "administered" &&
+        detailsMedicationId === medication.id
+      );
+    });
   }
 
-  async function handleRegisterMedication(medication) {
-    if (!user || !family?.id || !activePatient?.id) return;
+  function getPendingDoseForMedication(medication) {
+    return nextDoses.find((dose) => dose.medication_id === medication.id) || null;
+  }
 
-    setRegisteringId(medication.id);
-    setRegisterError("");
+  function getMedicationActionLabel(medication) {
+    if (wasMedicationTakenToday(medication)) {
+      return "Feito";
+    }
 
-    try {
-      const alreadyTaken = wasMedicationTakenToday(medication);
+    if (medication.type === "interval") {
+      const pendingDose = getPendingDoseForMedication(medication);
 
-      if (alreadyTaken) {
-        setRegisterError("Essa medicação já foi registrada hoje.");
-        return;
+      if (pendingDose?.is_first_dose) {
+        return "1ª dose";
       }
 
-      const { error } = await supabase.from("care_records").insert([
-        {
-          family_id: family.id,
-          patient_id: activePatient.id,
-          medication_id: medication.id,
-          record_type: "medication",
-          actual_time: new Date().toISOString(),
-          recorded_by_name: user.full_name || user.email,
-          recorded_by_email: user.email,
-          is_system: false,
-          notes: `Medicamento administrado: ${medication.name}`,
-          details: {
-            medication_name: medication.name,
-            dosage: medication.dosage || null,
-            fixed_times: medication.fixed_times || [],
-            interval_hours: medication.interval_hours || null,
-          },
-        },
-      ]);
-
-      if (error) throw error;
-
-      await loadData();
-    } catch (err) {
-      console.error("Erro ao registrar medicação:", err);
-      setRegisterError(err?.message || "Erro ao registrar medicação.");
-    } finally {
-      setRegisteringId(null);
+      if (pendingDose) {
+        return "Próxima dose";
+      }
     }
+
+    return "Registrar";
   }
 
   function formatDateTime(value) {
@@ -195,6 +192,11 @@ function TodayContent() {
   function handleSelectPatient(patient) {
     selectPatient(patient);
     setShowPatientPicker(false);
+  }
+
+  function openRegisterMedicationModal(medication = null) {
+    setSelectedMedicationForModal(medication);
+    setShowRegisterMedModal(true);
   }
 
   if (loading || pageLoading) {
@@ -384,6 +386,8 @@ function TodayContent() {
         <div className="space-y-3">
           {medications.map((medication) => {
             const taken = wasMedicationTakenToday(medication);
+            const pendingDose = getPendingDoseForMedication(medication);
+            const actionLabel = getMedicationActionLabel(medication);
 
             return (
               <div
@@ -415,7 +419,22 @@ function TodayContent() {
                       style={{ color: "var(--text-secondary)" }}
                     >
                       <Clock size={13} />
-                      {getMedicationScheduleLabel(medication)}
+                      {medication.type === "interval" && pendingDose?.due_at ? (
+                        <>
+                          <span>{getMedicationScheduleLabel(medication)}</span>
+                          <span>|</span>
+                          <span
+                            style={{
+                              color: "var(--text-primary)",
+                              fontWeight: 500,
+                            }}
+                          >
+                            Próxima: {formatDateTime(pendingDose.due_at)}
+                          </span>
+                        </>
+                      ) : (
+                        <span>{getMedicationScheduleLabel(medication)}</span>
+                      )}
                     </div>
                   </div>
 
@@ -432,14 +451,11 @@ function TodayContent() {
                     </span>
                   ) : (
                     <button
-                      onClick={() => handleRegisterMedication(medication)}
-                      disabled={registeringId === medication.id}
+                      onClick={() => openRegisterMedicationModal(medication)}
                       className="h-10 px-4 rounded-xl text-sm font-medium text-white"
                       style={{ background: "var(--sage-dark)" }}
                     >
-                      {registeringId === medication.id
-                        ? "Salvando..."
-                        : "Registrar"}
+                      {actionLabel}
                     </button>
                   )}
                 </div>
@@ -613,16 +629,56 @@ function TodayContent() {
         </div>
       )}
 
-      <FAB onObservation={() => setShowObservationModal(true)} />
+      <FAB
+        onRegisterMed={() => openRegisterMedicationModal(null)}
+        onObservation={() => setShowObservationModal(true)}
+        onBloodPressure={() => setShowBloodPressureModal(true)}
+      />
+
+      {showRegisterMedModal && (
+        <RegisterMedModal
+          medications={medications}
+          family={family}
+          user={user}
+          activePatient={activePatient}
+          initialMedication={selectedMedicationForModal}
+          onClose={() => {
+            setShowRegisterMedModal(false);
+            setSelectedMedicationForModal(null);
+          }}
+          onSaved={async () => {
+            setShowRegisterMedModal(false);
+            setSelectedMedicationForModal(null);
+            await loadData();
+          }}
+        />
+      )}
 
       {showObservationModal && (
         <ObservationModal
           family={family}
           user={user}
           activePatient={activePatient}
+          type="observation"
+          title="Registrar observação"
           onClose={() => setShowObservationModal(false)}
           onSaved={async () => {
             setShowObservationModal(false);
+            await loadData();
+          }}
+        />
+      )}
+
+      {showBloodPressureModal && (
+        <ObservationModal
+          family={family}
+          user={user}
+          activePatient={activePatient}
+          type="blood_pressure"
+          title="Registrar pressão"
+          onClose={() => setShowBloodPressureModal(false)}
+          onSaved={async () => {
+            setShowBloodPressureModal(false);
             await loadData();
           }}
         />

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X, CheckCircle } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { format, differenceInMinutes } from "date-fns";
@@ -8,13 +8,18 @@ export default function RegisterMedModal({
   family,
   user,
   activePatient,
+  initialMedication = null,
   onClose,
   onSaved,
 }) {
-  const [selected, setSelected] = useState(null);
+  const [selected, setSelected] = useState(initialMedication);
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    setSelected(initialMedication);
+  }, [initialMedication]);
 
   const pending = medications.filter((m) => m.is_active);
 
@@ -98,7 +103,7 @@ export default function RegisterMedModal({
           .from("next_doses")
           .select("*")
           .eq("family_id", family.id)
-          .eq("patient_id", activePatient.id)
+          .eq("patient_id", activePatient?.id || null)
           .eq("medication_id", selected.id)
           .eq("status", "pendente")
           .order("id", { ascending: true })

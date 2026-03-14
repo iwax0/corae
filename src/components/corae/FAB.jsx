@@ -5,8 +5,9 @@ export default function FAB({ onRegisterMed, onObservation, onBloodPressure }) {
   const [open, setOpen] = useState(false);
 
   function handle(fn) {
-    setOpen(false);
-    fn();
+    if (typeof fn === "function") {
+      fn();
+    }
   }
 
   const actions = [
