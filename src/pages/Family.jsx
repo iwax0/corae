@@ -396,9 +396,9 @@ function FamilyContent() {
           className="text-sm font-semibold"
           style={{ color: "var(--text-primary)" }}
         >
-          {user?.user_metadata?.full_name ||
+          {member?.user_name ||
+            user?.user_metadata?.full_name ||
             user?.user_metadata?.name ||
-            member?.user_name ||
             "Usuário"}
         </p>
 

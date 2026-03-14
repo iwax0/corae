@@ -27,7 +27,7 @@ export default function Splash() {
 
         setTimeout(() => {
           if (!active) return;
-          navigate("/login", { replace: true });
+          navigate("/welcome", { replace: true });
         }, 1600);
       }
     }

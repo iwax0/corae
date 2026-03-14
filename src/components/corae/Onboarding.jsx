@@ -89,168 +89,184 @@ export default function Onboarding({ user, onComplete }) {
   if (step === 0) {
     return (
       <div
-        className="min-h-screen flex flex-col items-center justify-center p-6"
+        className="min-h-screen flex items-center justify-center px-6 py-8"
         style={{ background: "var(--warm)" }}
       >
-        <div
-          className="w-16 h-16 rounded-3xl flex items-center justify-center mb-6"
-          style={{ background: "var(--sage-light)" }}
-        >
-          <Heart size={32} style={{ color: "var(--sage-dark)" }} />
-        </div>
+        <div className="w-full max-w-md text-center">
+          <div
+            className="w-16 h-16 rounded-3xl flex items-center justify-center mb-6 mx-auto"
+            style={{ background: "var(--sage-light)" }}
+          >
+            <Heart size={32} style={{ color: "var(--sage-dark)" }} />
+          </div>
 
-        <h1
-          className="text-3xl font-semibold mb-2 text-center"
-          style={{ color: "var(--text-primary)" }}
-        >
-          Bem-vindo ao Corae
-        </h1>
+          <h1
+            className="text-3xl font-semibold mb-2"
+            style={{ color: "var(--text-primary)" }}
+          >
+            Bem-vindo ao Corae
+          </h1>
 
-        <p
-          className="text-base text-center mb-8 leading-relaxed"
-          style={{ color: "var(--text-secondary)" }}
-        >
-          Organize os cuidados em família com simplicidade e carinho.
-        </p>
-
-        <div
-          className="w-full max-w-sm p-4 rounded-2xl mb-8"
-          style={{
-            background: "var(--sage-light)",
-            border: "1px solid #B8D4C0",
-          }}
-        >
-          <p className="text-sm text-center" style={{ color: "var(--sage-dark)" }}>
-            ⚕️ O Corae organiza registros e não substitui orientação médica.
+          <p
+            className="text-base mb-8 leading-relaxed"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            Organize os cuidados em família com simplicidade e carinho.
           </p>
-        </div>
 
-        <button
-          onClick={() => setStep(1)}
-          className="w-full max-w-sm h-14 rounded-2xl text-white font-semibold text-base transition-all active:scale-95"
-          style={{ background: "var(--sage-dark)" }}
-        >
-          Começar
-        </button>
+          <div
+            className="w-full p-4 rounded-2xl mb-8"
+            style={{
+              background: "white",
+              border: "1px solid #B8D4C0",
+            }}
+          >
+            <p
+              className="text-sm text-center"
+              style={{ color: "var(--text-primary)" }}
+            >
+              ⚕️ O Corae organiza registros e não substitui orientação médica.
+            </p>
+          </div>
+
+          <button
+            onClick={() => setStep(1)}
+            className="w-full h-14 rounded-2xl font-semibold text-base transition-all active:scale-95"
+            style={{
+              background: "#2F6F57",
+              color: "white",
+            }}
+          >
+            Começar
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
     <div
-      className="min-h-screen flex flex-col p-6 pt-12"
+      className="min-h-screen flex items-center justify-center px-6 py-8"
       style={{ background: "var(--warm)" }}
     >
-      <h2
-        className="text-2xl font-semibold mb-2"
-        style={{ color: "var(--text-primary)" }}
-      >
-        Criar família
-      </h2>
-
-      <p className="text-sm mb-8" style={{ color: "var(--text-secondary)" }}>
-        Você será o Responsável Principal.
-      </p>
-
-      <div className="space-y-4 max-w-sm w-full">
-        <div>
-          <label
-            className="text-sm font-medium block mb-2"
-            style={{ color: "var(--text-secondary)" }}
-          >
-            Nome da família / equipe
-          </label>
-          <input
-            className="w-full h-14 px-4 rounded-2xl border text-base outline-none focus:ring-2"
-            style={{
-              background: "white",
-              border: "1px solid var(--border)",
-              color: "var(--text-primary)",
-            }}
-            placeholder="Ex: Família Silva"
-            value={familyName}
-            onChange={(e) => setFamilyName(e.target.value)}
-          />
-        </div>
-
-        <div>
-          <label
-            className="text-sm font-medium block mb-2"
-            style={{ color: "var(--text-secondary)" }}
-          >
-            Nome do paciente
-          </label>
-          <input
-            className="w-full h-14 px-4 rounded-2xl border text-base outline-none"
-            style={{
-              background: "white",
-              border: "1px solid var(--border)",
-              color: "var(--text-primary)",
-            }}
-            placeholder="Ex: Maria"
-            value={patientName}
-            onChange={(e) => setPatientName(e.target.value)}
-          />
-        </div>
-
-        <div>
-          <label
-            className="text-sm font-medium block mb-2"
-            style={{ color: "var(--text-secondary)" }}
-          >
-            Criar PIN (4 dígitos)
-          </label>
-          <input
-            className="w-full h-14 px-4 rounded-2xl border text-base outline-none tracking-widest"
-            style={{
-              background: "white",
-              border: "1px solid var(--border)",
-              color: "var(--text-primary)",
-            }}
-            placeholder="••••"
-            type="password"
-            maxLength={4}
-            value={pin}
-            onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-          />
-        </div>
-
-        <div>
-          <label
-            className="text-sm font-medium block mb-2"
-            style={{ color: "var(--text-secondary)" }}
-          >
-            Confirmar PIN
-          </label>
-          <input
-            className="w-full h-14 px-4 rounded-2xl border text-base outline-none tracking-widest"
-            style={{
-              background: "white",
-              border: "1px solid var(--border)",
-              color: "var(--text-primary)",
-            }}
-            placeholder="••••"
-            type="password"
-            maxLength={4}
-            value={pin2}
-            onChange={(e) => setPin2(e.target.value.replace(/\D/g, ""))}
-          />
-        </div>
-
-        {error && (
-          <p className="text-sm" style={{ color: "var(--error)" }}>
-            {error}
-          </p>
-        )}
-
-        <button
-          onClick={handleCreate}
-          disabled={loading}
-          className="w-full h-14 rounded-2xl text-white font-semibold text-base transition-all active:scale-95 mt-4"
-          style={{ background: loading ? "var(--sage)" : "var(--sage-dark)" }}
+      <div className="w-full max-w-md">
+        <h2
+          className="text-2xl font-semibold mb-2 text-center"
+          style={{ color: "var(--text-primary)" }}
         >
-          {loading ? "Criando..." : "Criar família"}
-        </button>
+          Criar família
+        </h2>
+
+        <p
+          className="text-sm mb-8 text-center"
+          style={{ color: "var(--text-secondary)" }}
+        >
+          Você será o Responsável Principal.
+        </p>
+
+        <div className="space-y-4 w-full">
+          <div>
+            <label
+              className="text-sm font-medium block mb-2"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Nome da família / equipe
+            </label>
+            <input
+              className="w-full h-14 px-4 rounded-2xl border text-base outline-none"
+              style={{
+                background: "white",
+                border: "1px solid var(--border)",
+                color: "var(--text-primary)",
+              }}
+              placeholder="Ex: Família Silva"
+              value={familyName}
+              onChange={(e) => setFamilyName(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <label
+              className="text-sm font-medium block mb-2"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Nome do paciente
+            </label>
+            <input
+              className="w-full h-14 px-4 rounded-2xl border text-base outline-none"
+              style={{
+                background: "white",
+                border: "1px solid var(--border)",
+                color: "var(--text-primary)",
+              }}
+              placeholder="Ex: Maria"
+              value={patientName}
+              onChange={(e) => setPatientName(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <label
+              className="text-sm font-medium block mb-2"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Criar PIN (4 dígitos)
+            </label>
+            <input
+              className="w-full h-14 px-4 rounded-2xl border text-base outline-none tracking-widest"
+              style={{
+                background: "white",
+                border: "1px solid var(--border)",
+                color: "var(--text-primary)",
+              }}
+              placeholder="••••"
+              type="password"
+              maxLength={4}
+              value={pin}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+            />
+          </div>
+
+          <div>
+            <label
+              className="text-sm font-medium block mb-2"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Confirmar PIN
+            </label>
+            <input
+              className="w-full h-14 px-4 rounded-2xl border text-base outline-none tracking-widest"
+              style={{
+                background: "white",
+                border: "1px solid var(--border)",
+                color: "var(--text-primary)",
+              }}
+              placeholder="••••"
+              type="password"
+              maxLength={4}
+              value={pin2}
+              onChange={(e) => setPin2(e.target.value.replace(/\D/g, ""))}
+            />
+          </div>
+
+          {error && (
+            <p className="text-sm" style={{ color: "var(--error)" }}>
+              {error}
+            </p>
+          )}
+
+          <button
+            onClick={handleCreate}
+            disabled={loading}
+            className="w-full h-14 rounded-2xl font-semibold text-base transition-all active:scale-95 mt-4"
+            style={{
+              background: loading ? "#7FA594" : "#2F6F57",
+              color: "white",
+            }}
+          >
+            {loading ? "Criando..." : "Criar família"}
+          </button>
+        </div>
       </div>
     </div>
   );

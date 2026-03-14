@@ -5,9 +5,10 @@ import { queryClientInstance } from "@/lib/query-client";
 import { AppProvider, useApp } from "@/lib/AuthContext";
 import { pagesConfig } from "./pages.config";
 import PageNotFound from "./lib/PageNotFound";
-import Onboarding from "@/components/corae/Onboarding";
 import Login from "@/pages/Login";
 import Splash from "@/pages/Splash";
+import Welcome from "@/pages/Welcome";
+import CreateFamily from "@/pages/CreateFamily";
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -30,7 +31,7 @@ function LoadingScreen() {
 }
 
 function ProtectedRoute({ children }) {
-  const { user, family, loading, refreshFamily } = useApp();
+  const { user, family, loading } = useApp();
 
   if (loading) return <LoadingScreen />;
 
@@ -39,25 +40,40 @@ function ProtectedRoute({ children }) {
   }
 
   if (!family) {
-    return <Onboarding user={user} onComplete={refreshFamily} />;
+    return <Navigate to="/create-family" replace />;
   }
 
   return children;
 }
 
+function CreateFamilyRoute() {
+  const { user, family, loading } = useApp();
+
+  if (loading) return <LoadingScreen />;
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (family) {
+    return <Navigate to="/home" replace />;
+  }
+
+  return <CreateFamily />;
+}
+
 function AppRoutes() {
-  const { user, loading } = useApp();
+  const { loading } = useApp();
 
   if (loading) return <LoadingScreen />;
 
   return (
     <Routes>
       <Route path="/" element={<Splash />} />
+      <Route path="/welcome" element={<Welcome />} />
 
-      <Route
-        path="/login"
-        element={user ? <Navigate to="/home" replace /> : <Login />}
-      />
+      <Route path="/login" element={<Login />} />
+      <Route path="/create-family" element={<CreateFamilyRoute />} />
 
       <Route path={`/${mainPageKey}`} element={<Navigate to="/home" replace />} />
       <Route path="/today" element={<Navigate to="/home" replace />} />

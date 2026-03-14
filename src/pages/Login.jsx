@@ -6,8 +6,9 @@ import { useApp } from "@/lib/AuthContext";
 
 export default function Login() {
   const navigate = useNavigate();
-  const { user, initialize } = useApp();
+  const { user, family, initialize } = useApp();
 
+  const [mode, setMode] = useState("login"); // login | signup
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -21,7 +22,11 @@ export default function Login() {
       } = await supabase.auth.getSession();
 
       if (session?.user || user) {
-        navigate("/home", { replace: true });
+        if (family) {
+          navigate("/home", { replace: true });
+        } else {
+          navigate("/create-family", { replace: true });
+        }
         return;
       }
 
@@ -29,27 +34,45 @@ export default function Login() {
     }
 
     checkSession();
-  }, [navigate, user]);
+  }, [navigate, user, family]);
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
     setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim().toLowerCase(),
-      password,
-    });
+    try {
+      if (mode === "login") {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: email.trim().toLowerCase(),
+          password,
+        });
 
-    if (error) {
-      setError(error.message || "Não foi possível entrar.");
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.auth.signUp({
+          email: email.trim().toLowerCase(),
+          password,
+        });
+
+        if (error) throw error;
+      }
+
+      await initialize();
+    } catch (err) {
+      setError(err?.message || `Não foi possível ${mode === "login" ? "entrar" : "criar a conta"}.`);
       setLoading(false);
       return;
     }
 
-    await initialize();
     setLoading(false);
-    navigate("/home", { replace: true });
+
+    if (mode === "signup") {
+      navigate("/create-family", { replace: true });
+      return;
+    }
+
+    navigate(family ? "/home" : "/create-family", { replace: true });
   }
 
   if (checking) {
@@ -72,11 +95,11 @@ export default function Login() {
           </div>
 
           <h1 className="text-[2rem] leading-tight font-bold text-[#243424]">
-            Bem-vindo ao Corae
+            {mode === "login" ? "Bem-vindo ao Corae" : "Crie sua conta"}
           </h1>
 
           <p className="mt-3 text-[1.05rem] text-[#7a887a]">
-            Entre para continuar
+            {mode === "login" ? "Entre para continuar" : "Cadastre-se para começar"}
           </p>
         </div>
 
@@ -129,6 +152,7 @@ export default function Login() {
                   placeholder="••••••••"
                   className="w-full h-14 rounded-2xl border border-[#ddd6ca] bg-[#fcfbf8] pl-11 pr-4 text-[#394739] placeholder:text-[#a3aea3] outline-none focus:border-[#b8cab8] focus:ring-2 focus:ring-[#dcead9]"
                   required
+                  minLength={6}
                 />
               </div>
             </div>
@@ -147,10 +171,12 @@ export default function Login() {
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Entrando...
+                  {mode === "login" ? "Entrando..." : "Criando conta..."}
                 </>
-              ) : (
+              ) : mode === "login" ? (
                 "Entrar"
+              ) : (
+                "Criar conta"
               )}
             </button>
           </form>
@@ -165,9 +191,13 @@ export default function Login() {
 
             <button
               type="button"
+              onClick={() => {
+                setError("");
+                setMode((prev) => (prev === "login" ? "signup" : "login"));
+              }}
               className="hover:text-[#516451] transition"
             >
-              Criar conta
+              {mode === "login" ? "Criar conta" : "Já tenho conta"}
             </button>
           </div>
         </div>
