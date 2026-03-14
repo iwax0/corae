@@ -13,15 +13,27 @@ import {
   Edit3,
 } from "lucide-react";
 import { useApp } from "@/lib/AuthContext";
-import PinModal from "@/components/corae/PinModal";
+import BottomSheet from "@/components/corae/BottomSheet";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  getRecordBloodPressure,
+  getRecordIncorrectReason,
+  getRecordLabel,
+  getRecordMedicationName,
+  getRecordScheduledTime,
+  getRecordStatus,
+  getRecordDetails,
+} from "@/utils/careRecordHelpers";
 
 function DiaryContent() {
   const { family, member, activePatient } = useApp();
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showMarkIncorrect, setShowMarkIncorrect] = useState(null);
-  const [showPin, setShowPin] = useState(false);
+  const [incorrectStep, setIncorrectStep] = useState("reason");
   const [incorrectReason, setIncorrectReason] = useState("");
+  const [pin, setPin] = useState("");
+  const [pinError, setPinError] = useState("");
 
   useEffect(() => {
     if (family?.id && activePatient?.id) loadRecords();
@@ -73,38 +85,6 @@ function DiaryContent() {
     }
   }
 
-  function getMedicationName(r) {
-    return (
-      r.medication_name ||
-      r.details?.medication_name ||
-      null
-    );
-  }
-
-  function getScheduledTime(r) {
-    return (
-      r.scheduled_time ||
-      r.details?.scheduled_time ||
-      null
-    );
-  }
-
-  function getStatus(r) {
-    return r.status || r.details?.status || null;
-  }
-
-  function getIncorrectReason(r) {
-    return r.incorrect_reason || r.details?.incorrect_reason || null;
-  }
-
-  function getBloodPressure(r) {
-    const sys = r.details?.sys ?? null;
-    const dia = r.details?.dia ?? null;
-    const pulse = r.details?.pulse ?? null;
-
-    return { sys, dia, pulse };
-  }
-  
   function getIcon(type, status) {
     if (type === "administered" && status === "on_time") {
       return { Icon: CheckCircle, color: "var(--success)", bg: "#E8F5EE" };
@@ -141,34 +121,25 @@ function DiaryContent() {
     };
   }
 
-  function getLabel(r) {
-    const status = getStatus(r);
+  function openIncorrectFlow(record) {
+    setShowMarkIncorrect(record);
+    setIncorrectStep("reason");
+    setIncorrectReason("");
+    setPin("");
+    setPinError("");
+  }
 
-    const typeLabels = {
-      administered:
-        status === "delayed"
-          ? "Administrado com atraso"
-          : status === "incorrect"
-          ? "Registrado como incorreto"
-          : "Administrado",
-      missed: "Dose não registrada",
-      observation: "Observação",
-      blood_pressure: "Pressão registrada",
-      appointment: "Consulta agendada",
-      change_suggested: "Alteração sugerida",
-      change_approved: "Alteração aprovada",
-      change_rejected: "Alteração rejeitada",
-    };
-
-    return typeLabels[r.record_type] || r.record_type;
+  function closeIncorrectFlow() {
+    setShowMarkIncorrect(null);
+    setIncorrectStep("reason");
+    setIncorrectReason("");
+    setPin("");
+    setPinError("");
   }
 
   async function markIncorrect(record, reason) {
     try {
-      const currentDetails =
-        record.details && typeof record.details === "object"
-          ? record.details
-          : {};
+      const currentDetails = getRecordDetails(record);
 
       const { error } = await supabase
         .from("care_records")
@@ -183,8 +154,7 @@ function DiaryContent() {
 
       if (error) throw error;
 
-      setShowMarkIncorrect(null);
-      setIncorrectReason("");
+      closeIncorrectFlow();
       await loadRecords();
     } catch (err) {
       console.error("Erro ao marcar como incorreto:", err);
@@ -192,6 +162,32 @@ function DiaryContent() {
     }
   }
 
+  function verifyPin(p) {
+    if (p === family?.pin) {
+      markIncorrect(showMarkIncorrect, incorrectReason);
+    } else {
+      setPinError("PIN incorreto. Tente novamente.");
+      setPin("");
+    }
+  }
+
+  function handleDigit(d) {
+    if (pin.length >= 4) return;
+    const next = pin + d;
+    setPin(next);
+    setPinError("");
+
+    if (next.length === 4) {
+      setTimeout(() => verifyPin(next), 100);
+    }
+  }
+
+  function handleDelete() {
+    setPin((p) => p.slice(0, -1));
+    setPinError("");
+  }
+
+  const digits = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "⌫"];
   const groups = groupByDay(records);
 
   if (!family) return null;
@@ -230,12 +226,12 @@ function DiaryContent() {
 
             <div className="space-y-2">
               {dayRecords.map((r) => {
-                const status = getStatus(r);
-                const medicationName = getMedicationName(r);
-                const scheduledTime = getScheduledTime(r);
-                const incorrectReasonValue = getIncorrectReason(r);
+                const status = getRecordStatus(r);
+                const medicationName = getRecordMedicationName(r);
+                const scheduledTime = getRecordScheduledTime(r);
+                const incorrectReasonValue = getRecordIncorrectReason(r);
                 const { Icon, color, bg } = getIcon(r.record_type, status);
-                const { sys, dia, pulse } = getBloodPressure(r);
+                const { sys, dia, pulse } = getRecordBloodPressure(r);
 
                 return (
                   <div
@@ -257,7 +253,7 @@ function DiaryContent() {
                             className="font-medium text-sm"
                             style={{ color: "var(--text-primary)" }}
                           >
-                            {getLabel(r)}
+                            {getRecordLabel(r)}
                             {medicationName ? ` — ${medicationName}` : ""}
                           </p>
 
@@ -286,15 +282,16 @@ function DiaryContent() {
                             </p>
                           )}
 
-                          {r.record_type === "blood_pressure" && (sys || dia || pulse) && (
-                            <p
-                              className="text-xs mt-1"
-                              style={{ color: "var(--text-secondary)" }}
-                            >
-                              {sys || "—"}/{dia || "—"} mmHg
-                              {pulse ? ` · Pulso ${pulse} bpm` : ""}
-                            </p>
-                          )}
+                          {r.record_type === "blood_pressure" &&
+                            (sys || dia || pulse) && (
+                              <p
+                                className="text-xs mt-1"
+                                style={{ color: "var(--text-secondary)" }}
+                              >
+                                {sys || "—"}/{dia || "—"} mmHg
+                                {pulse ? ` · Pulso ${pulse} bpm` : ""}
+                              </p>
+                            )}
 
                           {incorrectReasonValue && (
                             <p
@@ -311,7 +308,7 @@ function DiaryContent() {
                           member?.role === "principal" &&
                           !r.is_system && (
                             <button
-                              onClick={() => setShowMarkIncorrect(r)}
+                              onClick={() => openIncorrectFlow(r)}
                               className="text-xs px-2 py-1 rounded-lg flex-shrink-0"
                               style={{
                                 color: "var(--error)",
@@ -332,71 +329,156 @@ function DiaryContent() {
       )}
 
       {showMarkIncorrect && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm">
-          {!showPin ? (
-            <div className="w-full max-w-sm bg-white rounded-t-3xl p-6 pb-10">
-              <h3
-                className="text-lg font-semibold mb-4"
-                style={{ color: "var(--text-primary)" }}
+        <BottomSheet
+          open={!!showMarkIncorrect}
+          title={
+            incorrectStep === "reason"
+              ? "Marcar como incorreto"
+              : "Confirmar com PIN"
+          }
+          onClose={closeIncorrectFlow}
+        >
+          <AnimatePresence mode="wait">
+            {incorrectStep === "reason" ? (
+              <motion.div
+                key="reason-step"
+                initial={{ opacity: 0, x: -12 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 12 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
               >
-                Marcar como incorreto
-              </h3>
+                <p
+                  className="text-sm mb-4"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  O registro não será apagado. Informe o motivo:
+                </p>
 
-              <p
-                className="text-sm mb-4"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                O registro não será apagado. Informe o motivo:
-              </p>
-
-              <textarea
-                className="w-full p-3 rounded-xl border text-sm resize-none outline-none mb-4"
-                style={{
-                  background: "var(--warm)",
-                  border: "1px solid var(--border)",
-                }}
-                rows={3}
-                placeholder="Descreva o motivo..."
-                value={incorrectReason}
-                onChange={(e) => setIncorrectReason(e.target.value)}
-              />
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    setShowMarkIncorrect(null);
-                    setIncorrectReason("");
+                <textarea
+                  className="w-full p-3 rounded-xl border text-sm resize-none outline-none mb-4"
+                  style={{
+                    background: "var(--warm)",
+                    border: "1px solid var(--border)",
                   }}
-                  className="flex-1 h-12 rounded-xl font-medium text-sm"
+                  rows={3}
+                  placeholder="Descreva o motivo..."
+                  value={incorrectReason}
+                  onChange={(e) => setIncorrectReason(e.target.value)}
+                />
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={closeIncorrectFlow}
+                    className="flex-1 h-12 rounded-xl font-medium text-sm"
+                    style={{
+                      border: "1px solid var(--border)",
+                      color: "var(--text-secondary)",
+                    }}
+                  >
+                    Cancelar
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIncorrectStep("pin");
+                      setPin("");
+                      setPinError("");
+                    }}
+                    className="flex-1 h-12 rounded-xl font-medium text-sm text-white"
+                    style={{ background: "var(--error)" }}
+                  >
+                    Continuar com PIN
+                  </button>
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="pin-step"
+                initial={{ opacity: 0, x: 12 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -12 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
+              >
+                <p
+                  className="text-sm mb-6 text-center"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  Digite o PIN do Responsável Principal
+                </p>
+
+                <div className="flex justify-center gap-4 mb-6">
+                  {[0, 1, 2, 3].map((i) => (
+                    <div
+                      key={i}
+                      className="w-4 h-4 rounded-full border-2 transition-all"
+                      style={{
+                        background:
+                          i < pin.length ? "var(--sage-dark)" : "transparent",
+                        borderColor:
+                          i < pin.length ? "var(--sage-dark)" : "var(--border)",
+                      }}
+                    />
+                  ))}
+                </div>
+
+                {pinError && (
+                  <p
+                    className="text-center text-sm mb-4"
+                    style={{ color: "var(--error)" }}
+                  >
+                    {pinError}
+                  </p>
+                )}
+
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  {digits.map((d, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() =>
+                        d === "⌫"
+                          ? handleDelete()
+                          : d !== ""
+                          ? handleDigit(d)
+                          : null
+                      }
+                      className={`h-14 rounded-2xl text-xl font-medium transition-all active:scale-95 ${
+                        d === "" ? "pointer-events-none" : ""
+                      }`}
+                      style={{
+                        background:
+                          d === ""
+                            ? "transparent"
+                            : d === "⌫"
+                            ? "var(--warm-dark)"
+                            : "var(--warm)",
+                        color: "var(--text-primary)",
+                      }}
+                    >
+                      {d}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIncorrectStep("reason");
+                    setPin("");
+                    setPinError("");
+                  }}
+                  className="w-full h-12 rounded-xl font-medium text-sm"
                   style={{
                     border: "1px solid var(--border)",
                     color: "var(--text-secondary)",
                   }}
                 >
-                  Cancelar
+                  Voltar
                 </button>
-
-                <button
-                  onClick={() => setShowPin(true)}
-                  className="flex-1 h-12 rounded-xl font-medium text-sm text-white"
-                  style={{ background: "var(--error)" }}
-                >
-                  Continuar com PIN
-                </button>
-              </div>
-            </div>
-          ) : (
-            <PinModal
-              family={family}
-              onConfirm={() => {
-                setShowPin(false);
-                markIncorrect(showMarkIncorrect, incorrectReason);
-              }}
-              onClose={() => setShowPin(false)}
-              title="Confirmar marcação"
-            />
-          )}
-        </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </BottomSheet>
       )}
     </div>
   );

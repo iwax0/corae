@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -11,7 +11,6 @@ import {
   Pill,
   FileText,
   ChevronDown,
-  X,
   Check,
 } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
@@ -21,6 +20,7 @@ import ObservationModal from "@/components/corae/ObservationModal";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import RegisterMedModal from "@/components/corae/RegisterMedModal";
+import BottomSheet from "@/components/corae/BottomSheet";
 
 function TodayContent() {
   const {
@@ -42,12 +42,17 @@ function TodayContent() {
   const [showBloodPressureModal, setShowBloodPressureModal] = useState(false);
   const [showRegisterMedModal, setShowRegisterMedModal] = useState(false);
   const [showPatientPicker, setShowPatientPicker] = useState(false);
-  const [selectedMedicationForModal, setSelectedMedicationForModal] = useState(null);
+  const [selectedMedicationForModal, setSelectedMedicationForModal] =
+    useState(null);
+  const [showMedicationSheet, setShowMedicationSheet] = useState(false);
+
+  const visiblePatients = useMemo(() => {
+    return (patients || []).filter((p) => p.is_active !== false);
+  }, [patients]);
 
   useEffect(() => {
-    if (!loading) {
-      loadData();
-    }
+    if (loading) return;
+    loadData();
   }, [loading, family?.id, activePatient?.id]);
 
   async function loadData() {
@@ -117,6 +122,7 @@ function TodayContent() {
       setNextDoses(nextDosesRes.data || []);
     } catch (err) {
       console.error("Erro ao carregar Today:", err);
+      setRegisterError(err?.message || "Erro ao carregar dados do dia.");
       setMedications([]);
       setTodayRecords([]);
       setAppointments([]);
@@ -227,7 +233,7 @@ function TodayContent() {
     );
   }
 
-  if (!patients?.length) {
+  if (!visiblePatients.length) {
     return (
       <div className="p-4 space-y-4">
         <h1
@@ -256,7 +262,7 @@ function TodayContent() {
     );
   }
 
-  if (!activePatient) {
+  if (!activePatient?.id) {
     return (
       <div className="p-4 space-y-4">
         <h1
@@ -415,7 +421,7 @@ function TodayContent() {
                     </p>
 
                     <div
-                      className="flex items-center gap-1 mt-2 text-xs"
+                      className="flex items-center gap-1 mt-2 text-xs flex-wrap"
                       style={{ color: "var(--text-secondary)" }}
                     >
                       <Clock size={13} />
@@ -440,7 +446,7 @@ function TodayContent() {
 
                   {taken ? (
                     <span
-                      className="text-xs px-2 py-1 rounded-full flex items-center gap-1"
+                      className="text-xs px-2 py-1 rounded-full flex items-center gap-1 flex-shrink-0"
                       style={{
                         background: "var(--sage-light)",
                         color: "var(--sage-dark)",
@@ -452,7 +458,7 @@ function TodayContent() {
                   ) : (
                     <button
                       onClick={() => openRegisterMedicationModal(medication)}
-                      className="h-10 px-4 rounded-xl text-sm font-medium text-white"
+                      className="h-10 px-4 rounded-xl text-sm font-medium text-white flex-shrink-0"
                       style={{ background: "var(--sage-dark)" }}
                     >
                       {actionLabel}
@@ -630,7 +636,7 @@ function TodayContent() {
       )}
 
       <FAB
-        onRegisterMed={() => openRegisterMedicationModal(null)}
+        onRegisterMed={() => setShowMedicationSheet(true)}
         onObservation={() => setShowObservationModal(true)}
         onBloodPressure={() => setShowBloodPressureModal(true)}
       />
@@ -684,67 +690,137 @@ function TodayContent() {
         />
       )}
 
-      {showPatientPicker && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-sm bg-white rounded-t-3xl p-6 pb-8 max-h-[80vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-5">
-              <h2
-                className="text-lg font-semibold"
+      <BottomSheet
+        open={showPatientPicker}
+        title="Selecionar paciente"
+        onClose={() => setShowPatientPicker(false)}
+      >
+        <div className="space-y-2">
+          {visiblePatients.map((patient) => {
+            const isSelected = activePatient?.id === patient.id;
+
+            return (
+              <button
+                key={patient.id}
+                type="button"
+                onClick={() => handleSelectPatient(patient)}
+                className="w-full p-4 rounded-2xl flex items-center justify-between text-left transition"
+                style={{
+                  border: isSelected
+                    ? "1px solid var(--sage-dark)"
+                    : "1px solid var(--border)",
+                  background: isSelected ? "var(--sage-light)" : "white",
+                }}
+              >
+                <div>
+                  <p
+                    className="font-medium"
+                    style={{ color: "var(--text-primary)" }}
+                  >
+                    {patient.name}
+                  </p>
+
+                  {(patient.birthdate || patient.birth_date) && (
+                    <p
+                      className="text-xs mt-1"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      {patient.birthdate || patient.birth_date}
+                    </p>
+                  )}
+                </div>
+
+                {isSelected ? (
+                  <Check size={18} style={{ color: "var(--sage-dark)" }} />
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      </BottomSheet>
+
+      <BottomSheet
+        open={showMedicationSheet}
+        title="Registrar administração"
+        onClose={() => setShowMedicationSheet(false)}
+      >
+        <div className="space-y-3">
+          {medications.length > 0 ? (
+            medications.map((medication) => (
+              <button
+                key={medication.id}
+                type="button"
+                onClick={() => {
+                  setShowMedicationSheet(false);
+                  openRegisterMedicationModal(medication);
+                }}
+                className="w-full p-4 rounded-2xl text-left transition"
+                style={{
+                  border: "1px solid var(--border)",
+                  background: "white",
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <Pill size={16} style={{ color: "var(--sage-dark)" }} />
+                  <p
+                    className="font-medium"
+                    style={{ color: "var(--text-primary)" }}
+                  >
+                    {medication.name}
+                  </p>
+                </div>
+
+                <p
+                  className="text-sm mt-1"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  {medication.dosage || "Dose não informada"}
+                </p>
+
+                <p
+                  className="text-xs mt-2"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  {getMedicationScheduleLabel(medication)}
+                </p>
+              </button>
+            ))
+          ) : (
+            <div
+              className="p-4 rounded-2xl text-center"
+              style={{
+                border: "1px solid var(--border)",
+                background: "white",
+              }}
+            >
+              <p
+                className="font-medium"
                 style={{ color: "var(--text-primary)" }}
               >
-                Selecionar paciente
-              </h2>
-
-              <button onClick={() => setShowPatientPicker(false)}>
-                <X size={20} style={{ color: "var(--text-secondary)" }} />
-              </button>
+                Nenhuma medicação ativa
+              </p>
+              <p
+                className="text-sm mt-1"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Cadastre medicamentos para este paciente.
+              </p>
             </div>
+          )}
 
-            <div className="space-y-2">
-              {patients.map((patient) => {
-                const isSelected = activePatient?.id === patient.id;
-
-                return (
-                  <button
-                    key={patient.id}
-                    type="button"
-                    onClick={() => handleSelectPatient(patient)}
-                    className="w-full p-4 rounded-2xl flex items-center justify-between text-left transition"
-                    style={{
-                      border: isSelected
-                        ? "1px solid var(--sage-dark)"
-                        : "1px solid var(--border)",
-                      background: isSelected ? "var(--sage-light)" : "white",
-                    }}
-                  >
-                    <div>
-                      <p
-                        className="font-medium"
-                        style={{ color: "var(--text-primary)" }}
-                      >
-                        {patient.name}
-                      </p>
-
-                      {patient.birth_date && (
-                        <p
-                          className="text-xs mt-1"
-                          style={{ color: "var(--text-secondary)" }}
-                        >
-                          {patient.birth_date}
-                        </p>
-                      )}
-                    </div>
-
-                    {isSelected ? (
-                      <Check size={18} style={{ color: "var(--sage-dark)" }} />
-                    ) : null}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setShowMedicationSheet(false);
+              openRegisterMedicationModal(null);
+            }}
+            className="w-full h-11 rounded-xl text-sm font-medium text-white"
+            style={{ background: "var(--sage-dark)" }}
+          >
+            Registrar manualmente
+          </button>
         </div>
-      )}
+      </BottomSheet>
     </div>
   );
 }

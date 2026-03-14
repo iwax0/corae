@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useApp } from "@/lib/AuthContext";
 import PinModal from "@/components/corae/PinModal";
+import BottomSheet from "@/components/corae/BottomSheet";
 
 function FamilyContent() {
   const navigate = useNavigate();
@@ -47,8 +48,10 @@ function FamilyContent() {
   const [patientBirthdate, setPatientBirthdate] = useState("");
   const [patientNotes, setPatientNotes] = useState("");
   const [patientLoading, setPatientLoading] = useState(false);
-
+  const [showPatientsSheet, setShowPatientsSheet] = useState(false);
+  const [showMembersSheet, setShowMembersSheet] = useState(false);
   const [showFamilyForm, setShowFamilyForm] = useState(false);
+  const [showFamilySheet, setShowFamilySheet] = useState(false);
   const [familyName, setFamilyName] = useState("");
   const [familyLoading, setFamilyLoading] = useState(false);
 
@@ -77,15 +80,15 @@ function FamilyContent() {
 
     try {
       const changesQuery = activePatient?.id
-  ? supabase
-      .from("medication_changes")
-      .select("*")
-      .eq("family_id", family.id)
-      .eq("patient_id", activePatient.id)
-      .eq("status", "pending")
-      .order("id", { ascending: false })
-  : Promise.resolve({ data: [], error: null });
-  
+        ? supabase
+            .from("medication_changes")
+            .select("*")
+            .eq("family_id", family.id)
+            .eq("patient_id", activePatient.id)
+            .eq("status", "pending")
+            .order("id", { ascending: false })
+        : Promise.resolve({ data: [], error: null });
+
       const [memsRes, chgsRes] = await Promise.all([
         supabase
           .from("family_members")
@@ -93,13 +96,7 @@ function FamilyContent() {
           .eq("family_id", family.id)
           .order("joined_at", { ascending: true }),
 
-        supabase
-          .from("medication_changes")
-          .select("*")
-          .eq("family_id", family.id)
-          .eq("patient_id", activePatient?.id || null)
-          .eq("status", "pending")
-          .order("id", { ascending: false }),
+        changesQuery,
       ]);
 
       if (memsRes.error) throw memsRes.error;
@@ -322,7 +319,7 @@ function FamilyContent() {
       const { error: logError } = await supabase.from("care_records").insert([
         {
           family_id: family.id,
-          patient_id: activePatient?.id || null,
+          patient_id: activePatient?.id ?? null,
           record_type: approve ? "change_approved" : "change_rejected",
           actual_time: new Date().toISOString(),
           recorded_by_name: user.full_name || user.email,
@@ -350,27 +347,27 @@ function FamilyContent() {
     }
   }
 
-      async function handleLogout() {
-        try {
-          await logout();
-          navigate("/", { replace: true });
-        } catch (err) {
-          console.error("Erro ao sair:", err);
-          alert(err?.message || "Erro ao sair da conta.");
-        }
-      }
-
-    if (appLoading) {
-      return <div style={{ padding: 20, color: "#000" }}>Carregando app...</div>;
+  async function handleLogout() {
+    try {
+      await logout();
+      navigate("/", { replace: true });
+    } catch (err) {
+      console.error("Erro ao sair:", err);
+      alert(err?.message || "Erro ao sair da conta.");
     }
+  }
 
-    if (!user) {
-      return <div style={{ padding: 20, color: "#000" }}>Sem usuário</div>;
-    }
+  if (appLoading) {
+    return <div style={{ padding: 20, color: "#000" }}>Carregando app...</div>;
+  }
 
-    if (!family) {
-      return <div style={{ padding: 20, color: "#000" }}>Sem família</div>;
-    }
+  if (!user) {
+    return <div style={{ padding: 20, color: "#000" }}>Sem usuário</div>;
+  }
+
+  if (!family) {
+    return <div style={{ padding: 20, color: "#000" }}>Sem família</div>;
+  }
 
   return (
     <div className="p-4 space-y-5">
@@ -420,7 +417,7 @@ function FamilyContent() {
               className="text-xs font-medium mb-1"
               style={{ color: "var(--text-secondary)" }}
             >
-              Nome do grupo
+              Família
             </p>
             <p
               className="text-lg font-semibold"
@@ -432,10 +429,10 @@ function FamilyContent() {
 
           {member?.role === "principal" && (
             <button
-              onClick={() => requestAction(() => setShowFamilyForm(true))}
-              className="p-2 rounded-xl"
+              onClick={() => setShowFamilySheet(true)}
+              className="p-2 rounded-xl transition-all active:scale-90"
               style={{ color: "var(--text-secondary)" }}
-              title="Editar nome da família"
+              title="Ações da família"
             >
               <Pencil size={16} />
             </button>
@@ -453,7 +450,7 @@ function FamilyContent() {
           </p>
           {member?.role === "principal" && (
             <button
-              onClick={() => requestAction(() => openPatientForm())}
+              onClick={() => setShowPatientsSheet(true)}
               className="flex items-center gap-1 text-sm font-medium"
               style={{ color: "var(--sage-dark)" }}
             >
@@ -631,7 +628,7 @@ function FamilyContent() {
           </p>
           {member?.role === "principal" && (
             <button
-              onClick={() => setShowInvite(true)}
+              onClick={() => setShowMembersSheet(true)}
               className="flex items-center gap-1 text-sm font-medium"
               style={{ color: "var(--sage-dark)" }}
             >
@@ -742,105 +739,92 @@ function FamilyContent() {
         </div>
       )}
 
-      {showInvite && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-sm bg-white rounded-t-3xl p-6 pb-10">
-            <div className="flex items-center justify-between mb-6">
-              <h2
-                className="text-lg font-semibold"
-                style={{ color: "var(--text-primary)" }}
+      <BottomSheet
+        open={showInvite}
+        onClose={() => {
+          setShowInvite(false);
+          setInviteDone(false);
+          setInviteError("");
+        }}
+        title="Convidar membro"
+      >
+        {inviteDone ? (
+          <div className="text-center py-4">
+            <p
+              className="text-base font-medium mb-2"
+              style={{ color: "var(--text-primary)" }}
+            >
+              Membro adicionado!
+            </p>
+            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+              O acesso será reconhecido quando essa pessoa entrar com esse mesmo e-mail.
+            </p>
+            <button
+              onClick={() => {
+                setShowInvite(false);
+                setInviteDone(false);
+              }}
+              className="mt-4 w-full h-12 rounded-2xl font-medium text-white"
+              style={{ background: "var(--sage-dark)" }}
+            >
+              Fechar
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div>
+              <label
+                htmlFor="invite-email"
+                className="text-sm font-medium block mb-2"
+                style={{ color: "var(--text-secondary)" }}
               >
-                Convidar membro
-              </h2>
-              <button
-                onClick={() => {
-                  setShowInvite(false);
-                  setInviteDone(false);
-                  setInviteError("");
-                }}
-              >
-                <X size={20} style={{ color: "var(--text-secondary)" }} />
-              </button>
+                E-mail do convidado
+              </label>
+              <div className="relative">
+                <Mail
+                  size={16}
+                  className="absolute left-3 top-1/2 -translate-y-1/2"
+                  style={{ color: "var(--text-secondary)" }}
+                />
+                <input
+                  id="invite-email"
+                  name="inviteEmail"
+                  type="email"
+                  className="w-full h-12 pl-10 pr-4 rounded-xl border text-base outline-none"
+                  style={{
+                    background: "var(--warm)",
+                    border: "1px solid var(--border)",
+                  }}
+                  placeholder="email@exemplo.com"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                />
+              </div>
             </div>
 
-            {inviteDone ? (
-              <div className="text-center py-6">
-                <p
-                  className="text-base font-medium mb-2"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  Membro adicionado!
-                </p>
-                <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-                  O acesso será reconhecido quando essa pessoa entrar com esse mesmo e-mail.
-                </p>
-                <button
-                  onClick={() => {
-                    setShowInvite(false);
-                    setInviteDone(false);
-                  }}
-                  className="mt-4 h-12 px-6 rounded-xl font-medium text-white"
-                  style={{ background: "var(--sage-dark)" }}
-                >
-                  Fechar
-                </button>
-              </div>
-            ) : (
-              <>
-                <div className="mb-4">
-                  <label
-                    htmlFor="invite-email"
-                    className="text-sm font-medium block mb-2"
-                    style={{ color: "var(--text-secondary)" }}
-                  >
-                    E-mail do convidado
-                  </label>
-                  <div className="relative">
-                    <Mail
-                      size={16}
-                      className="absolute left-3 top-1/2 -translate-y-1/2"
-                      style={{ color: "var(--text-secondary)" }}
-                    />
-                    <input
-                      id="invite-email"
-                      name="inviteEmail"
-                      type="email"
-                      className="w-full h-12 pl-10 pr-4 rounded-xl border text-base outline-none"
-                      style={{
-                        background: "var(--warm)",
-                        border: "1px solid var(--border)",
-                      }}
-                      placeholder="email@exemplo.com"
-                      value={inviteEmail}
-                      onChange={(e) => setInviteEmail(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                {inviteError && (
-                  <p className="text-sm mb-3" style={{ color: "var(--error)" }}>
-                    {inviteError}
-                  </p>
-                )}
-
-                <button
-                  onClick={handleInvite}
-                  disabled={inviteLoading || !inviteEmail.trim()}
-                  className="w-full h-14 rounded-2xl text-white font-semibold text-base transition-all active:scale-95"
-                  style={{
-                    background:
-                      inviteEmail.trim() && !inviteLoading
-                        ? "var(--sage-dark)"
-                        : "#C5BDB5",
-                  }}
-                >
-                  {inviteLoading ? "Enviando..." : "Adicionar membro"}
-                </button>
-              </>
+            {inviteError && (
+              <p className="text-sm" style={{ color: "var(--error)" }}>
+                {inviteError}
+              </p>
             )}
+
+            <button
+              onClick={handleInvite}
+              disabled={inviteLoading || !inviteEmail.trim()}
+              className="w-full h-14 rounded-2xl text-white font-semibold text-base transition-all active:scale-95"
+              style={{
+                background:
+                  inviteEmail.trim() && !inviteLoading
+                    ? "var(--sage-dark)"
+                    : "#C5BDB5",
+              }}
+            >
+              {inviteLoading ? "Enviando..." : "Adicionar membro"}
+            </button>
           </div>
-        </div>
-      )}
+        )}
+        
+      </BottomSheet>
 
       {showFamilyForm && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm">
@@ -898,110 +882,98 @@ function FamilyContent() {
         </div>
       )}
 
-      {showPatientForm && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-sm bg-white rounded-t-3xl p-6 pb-10">
-            <div className="flex items-center justify-between mb-6">
-              <h2
-                className="text-lg font-semibold"
-                style={{ color: "var(--text-primary)" }}
-              >
-                {editingPatient ? "Editar paciente" : "Novo paciente"}
-              </h2>
-              <button onClick={() => setShowPatientForm(false)}>
-                <X size={20} style={{ color: "var(--text-secondary)" }} />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label
-                  htmlFor="patient-name"
-                  className="text-sm font-medium block mb-2"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  Nome do paciente *
-                </label>
-                <input
-                  id="patient-name"
-                  name="patientName"
-                  className="w-full h-12 px-4 rounded-xl border text-base outline-none"
-                  style={{
-                    background: "var(--warm)",
-                    border: "1px solid var(--border)",
-                  }}
-                  placeholder="Nome completo"
-                  value={patientName}
-                  onChange={(e) => setPatientName(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="patient-birthdate"
-                  className="text-sm font-medium block mb-2"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  Data de nascimento (opcional)
-                </label>
-                <input
-                  id="patient-birthdate"
-                  name="patientBirthdate"
-                  type="date"
-                  className="w-full h-12 px-4 rounded-xl border text-base outline-none"
-                  style={{
-                    background: "var(--warm)",
-                    border: "1px solid var(--border)",
-                  }}
-                  value={patientBirthdate}
-                  onChange={(e) => setPatientBirthdate(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="patient-notes"
-                  className="text-sm font-medium block mb-2"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  Observações (opcional)
-                </label>
-                <textarea
-                  id="patient-notes"
-                  name="patientNotes"
-                  className="w-full p-3 rounded-xl border text-sm resize-none outline-none"
-                  style={{
-                    background: "var(--warm)",
-                    border: "1px solid var(--border)",
-                  }}
-                  rows={2}
-                  placeholder="Ex: alergias, condições especiais..."
-                  value={patientNotes}
-                  onChange={(e) => setPatientNotes(e.target.value)}
-                />
-              </div>
-
-              <button
-                onClick={handleSavePatient}
-                disabled={patientLoading || !patientName.trim()}
-                className="w-full h-14 rounded-2xl text-white font-semibold text-base transition-all active:scale-95"
-                style={{
-                  background:
-                    patientName.trim() && !patientLoading
-                      ? "var(--sage-dark)"
-                      : "#C5BDB5",
-                }}
-              >
-                {patientLoading
-                  ? "Salvando..."
-                  : editingPatient
-                  ? "Salvar alterações"
-                  : "Adicionar paciente"}
-              </button>
-            </div>
+      <BottomSheet
+        open={showPatientForm}
+        onClose={() => setShowPatientForm(false)}
+        title={editingPatient ? "Editar paciente" : "Novo paciente"}
+      >
+        <div className="space-y-4">
+          <div>
+            <label
+              htmlFor="patient-name"
+              className="text-sm font-medium block mb-2"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Nome do paciente *
+            </label>
+            <input
+              id="patient-name"
+              name="patientName"
+              className="w-full h-12 px-4 rounded-xl border text-base outline-none"
+              style={{
+                background: "var(--warm)",
+                border: "1px solid var(--border)",
+              }}
+              placeholder="Nome completo"
+              value={patientName}
+              onChange={(e) => setPatientName(e.target.value)}
+            />
           </div>
+
+          <div>
+            <label
+              htmlFor="patient-birthdate"
+              className="text-sm font-medium block mb-2"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Data de nascimento (opcional)
+            </label>
+            <input
+              id="patient-birthdate"
+              name="patientBirthdate"
+              type="date"
+              className="w-full h-12 px-4 rounded-xl border text-base outline-none"
+              style={{
+                background: "var(--warm)",
+                border: "1px solid var(--border)",
+              }}
+              value={patientBirthdate}
+              onChange={(e) => setPatientBirthdate(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="patient-notes"
+              className="text-sm font-medium block mb-2"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Observações (opcional)
+            </label>
+            <textarea
+              id="patient-notes"
+              name="patientNotes"
+              className="w-full p-3 rounded-xl border text-sm resize-none outline-none"
+              style={{
+                background: "var(--warm)",
+                border: "1px solid var(--border)",
+              }}
+              rows={3}
+              placeholder="Ex: alergias, condições especiais..."
+              value={patientNotes}
+              onChange={(e) => setPatientNotes(e.target.value)}
+            />
+          </div>
+
+          <button
+            onClick={handleSavePatient}
+            disabled={patientLoading || !patientName.trim()}
+            className="w-full h-14 rounded-2xl text-white font-semibold text-base transition-all active:scale-95"
+            style={{
+              background:
+                patientName.trim() && !patientLoading
+                  ? "var(--sage-dark)"
+                  : "#C5BDB5",
+            }}
+          >
+            {patientLoading
+              ? "Salvando..."
+              : editingPatient
+              ? "Salvar alterações"
+              : "Adicionar paciente"}
+          </button>
         </div>
-      )}
+      </BottomSheet>
 
       {showPin && (
         <PinModal
@@ -1019,6 +991,75 @@ function FamilyContent() {
           }}
         />
       )}
+
+      <BottomSheet
+        open={showFamilySheet}
+        onClose={() => setShowFamilySheet(false)}
+        title="Família"
+      >
+        <div className="space-y-2">
+          <button
+            onClick={() => {
+              setShowFamilySheet(false);
+              requestAction(() => setShowFamilyForm(true));
+            }}
+            className="w-full h-12 px-4 rounded-2xl flex items-center gap-3 text-left"
+            style={{
+              background: "var(--warm)",
+              color: "var(--text-primary)",
+            }}
+          >
+            <Pencil size={18} />
+            <span>Editar nome da família</span>
+          </button>
+        </div>
+      </BottomSheet>
+
+      <BottomSheet
+        open={showPatientsSheet}
+        onClose={() => setShowPatientsSheet(false)}
+        title="Pacientes"
+      >
+        <div className="space-y-2">
+          <button
+            onClick={() => {
+              setShowPatientsSheet(false);
+              requestAction(() => openPatientForm());
+            }}
+            className="w-full h-12 px-4 rounded-2xl flex items-center gap-3 text-left"
+            style={{
+              background: "var(--warm)",
+              color: "var(--text-primary)",
+            }}
+          >
+            <Plus size={18} />
+            <span>Adicionar paciente</span>
+          </button>
+        </div>
+      </BottomSheet>
+
+      <BottomSheet
+        open={showMembersSheet}
+        onClose={() => setShowMembersSheet(false)}
+        title="Membros"
+      >
+        <div className="space-y-2">
+          <button
+            onClick={() => {
+              setShowMembersSheet(false);
+              setShowInvite(true);
+            }}
+            className="w-full h-12 px-4 rounded-2xl flex items-center gap-3 text-left"
+            style={{
+              background: "var(--warm)",
+              color: "var(--text-primary)",
+            }}
+          >
+            <Mail size={18} />
+            <span>Convidar novo membro</span>
+          </button>
+        </div>
+      </BottomSheet>
     </div>
   );
 }

@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
-import { X, CheckCircle } from "lucide-react";
+import { X, CheckCircle, Pill } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { format, differenceInMinutes } from "date-fns";
+import BottomSheet from "@/components/corae/BottomSheet";
+
 
 export default function RegisterMedModal({
   medications,
@@ -22,6 +24,7 @@ export default function RegisterMedModal({
   }, [initialMedication]);
 
   const pending = medications.filter((m) => m.is_active);
+  const isDirectSelection = !!initialMedication;
 
   async function handleSave() {
     if (!selected || !family?.id || !user?.email) return;
@@ -155,24 +158,12 @@ export default function RegisterMedModal({
     }
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm">
-      <div
-        className="w-full max-w-sm bg-white rounded-t-3xl p-6 pb-10"
-        onClick={(e) => e.stopPropagation()}
+    return (
+      <BottomSheet
+        open={true}
+        title="Registrar medicamento"
+        onClose={onClose}
       >
-        <div className="flex items-center justify-between mb-6">
-          <h2
-            className="text-lg font-semibold"
-            style={{ color: "var(--text-primary)" }}
-          >
-            Registrar medicamento
-          </h2>
-          <button onClick={onClose}>
-            <X size={20} style={{ color: "var(--text-secondary)" }} />
-          </button>
-        </div>
-
         {done ? (
           <div className="flex flex-col items-center py-8 gap-3">
             <CheckCircle size={48} style={{ color: "var(--success)" }} />
@@ -193,46 +184,74 @@ export default function RegisterMedModal({
                 Nenhum medicamento ativo encontrado.
               </p>
             ) : (
-              <div className="space-y-2 mb-4">
-                <p
-                  className="text-sm font-medium mb-3"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  Selecione o medicamento:
-                </p>
-
-                {pending.map((m) => (
-                  <button
-                    key={m.id}
-                    onClick={() => setSelected(m)}
-                    className="w-full p-4 rounded-2xl text-left transition-all active:scale-98"
+              <>
+                {isDirectSelection ? (
+                  <div
+                    className="mb-4 p-4 rounded-2xl"
                     style={{
-                      background:
-                        selected?.id === m.id
-                          ? "var(--sage-light)"
-                          : "var(--warm)",
-                      border: `2px solid ${
-                        selected?.id === m.id
-                          ? "var(--sage-dark)"
-                          : "var(--border)"
-                      }`,
+                      background: "var(--sage-light)",
+                      border: "2px solid var(--sage-dark)",
                     }}
                   >
+                    <div className="flex items-center gap-2">
+                      <Pill size={16} style={{ color: "var(--sage-dark)" }} />
+                      <p
+                        className="font-medium"
+                        style={{ color: "var(--text-primary)" }}
+                      >
+                        {selected?.name}
+                      </p>
+                    </div>
                     <p
-                      className="font-medium"
-                      style={{ color: "var(--text-primary)" }}
-                    >
-                      {m.name}
-                    </p>
-                    <p
-                      className="text-sm"
+                      className="text-sm mt-1"
                       style={{ color: "var(--text-secondary)" }}
                     >
-                      {m.dosage}
+                      {selected?.dosage || "Dose não informada"}
                     </p>
-                  </button>
-                ))}
-              </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2 mb-4">
+                    <p
+                      className="text-sm font-medium mb-3"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      Selecione o medicamento:
+                    </p>
+
+                    {pending.map((m) => (
+                      <button
+                        key={m.id}
+                        onClick={() => setSelected(m)}
+                        className="w-full p-4 rounded-2xl text-left transition-all active:scale-98"
+                        style={{
+                          background:
+                            selected?.id === m.id
+                              ? "var(--sage-light)"
+                              : "var(--warm)",
+                          border: `2px solid ${
+                            selected?.id === m.id
+                              ? "var(--sage-dark)"
+                              : "var(--border)"
+                          }`,
+                        }}
+                      >
+                        <p
+                          className="font-medium"
+                          style={{ color: "var(--text-primary)" }}
+                        >
+                          {m.name}
+                        </p>
+                        <p
+                          className="text-sm"
+                          style={{ color: "var(--text-secondary)" }}
+                        >
+                          {m.dosage}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
 
             <div className="mb-4">
@@ -269,7 +288,7 @@ export default function RegisterMedModal({
             </button>
           </>
         )}
-      </div>
-    </div>
-  );
+      </BottomSheet>
+    );
+
 }

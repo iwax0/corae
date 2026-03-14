@@ -14,11 +14,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Plus,
-  X,
   MapPin,
   FileText,
 } from "lucide-react";
 import { useApp } from "@/lib/AuthContext";
+import BottomSheet from "@/components/corae/BottomSheet";
 
 function CalendarContent() {
   const { user, family, member, activePatient } = useApp();
@@ -28,11 +28,11 @@ function CalendarContent() {
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-      if (family?.id && activePatient?.id) {
-        loadAppointments();
-      }
-    }, [family, activePatient]);
+  useEffect(() => {
+    if (family?.id && activePatient?.id) {
+      loadAppointments();
+    }
+  }, [family, activePatient]);
 
   async function loadAppointments() {
     if (!family?.id || !activePatient?.id) return;
@@ -96,99 +96,109 @@ function CalendarContent() {
         </button>
       </div>
 
-      <div className="flex items-center justify-between px-1">
-        <button
-          onClick={() =>
-            setCurrentMonth(
-              (m) => new Date(m.getFullYear(), m.getMonth() - 1)
-            )
-          }
+      <div
+        className="rounded-3xl bg-white p-4 space-y-4"
+        style={{ border: "1px solid var(--border)" }}
+      >
+        <div
+          className="flex items-center justify-between rounded-2xl px-3 py-3"
+          style={{ background: "var(--sage-light)" }}
         >
-          <ChevronLeft size={22} style={{ color: "var(--text-secondary)" }} />
-        </button>
-
-        <span
-          className="text-base font-semibold capitalize"
-          style={{ color: "var(--text-primary)" }}
-        >
-          {format(currentMonth, "MMMM yyyy", { locale: ptBR })}
-        </span>
-
-        <button
-          onClick={() =>
-            setCurrentMonth(
-              (m) => new Date(m.getFullYear(), m.getMonth() + 1)
-            )
-          }
-        >
-          <ChevronRight size={22} style={{ color: "var(--text-secondary)" }} />
-        </button>
-      </div>
-
-      <div className="grid grid-cols-7 gap-1">
-        {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => (
-          <div
-            key={i}
-            className="text-center text-xs font-medium py-1"
-            style={{ color: "var(--text-secondary)" }}
+          <button
+            onClick={() =>
+              setCurrentMonth(
+                (m) => new Date(m.getFullYear(), m.getMonth() - 1)
+              )
+            }
+            className="w-9 h-9 rounded-xl flex items-center justify-center"
           >
-            {d}
-          </div>
-        ))}
-      </div>
+            <ChevronLeft size={20} style={{ color: "var(--text-secondary)" }} />
+          </button>
 
-      <div className="grid grid-cols-7 gap-1">
-        {Array(firstDayOfWeek)
-          .fill(null)
-          .map((_, i) => (
-            <div key={`e-${i}`} />
-          ))}
+          <span
+            className="text-sm font-semibold capitalize"
+            style={{ color: "var(--text-primary)" }}
+          >
+            {format(currentMonth, "MMMM yyyy", { locale: ptBR })}
+          </span>
 
-        {days.map((day) => {
-          const appts = dayAppts(day);
-          const hasAppt = appts.length > 0;
-          const isSelected = selectedDay && isSameDay(day, selectedDay);
-          const today = isToday(day);
+          <button
+            onClick={() =>
+              setCurrentMonth(
+                (m) => new Date(m.getFullYear(), m.getMonth() + 1)
+              )
+            }
+            className="w-9 h-9 rounded-xl flex items-center justify-center"
+          >
+            <ChevronRight size={20} style={{ color: "var(--text-secondary)" }} />
+          </button>
+        </div>
 
-          return (
-            <button
-              key={day.toISOString()}
-              onClick={() =>
-                setSelectedDay(
-                  selectedDay && isSameDay(day, selectedDay) ? null : day
-                )
-              }
-              className="flex flex-col items-center py-2 rounded-xl transition-all relative"
-              style={{
-                background: isSelected
-                  ? "var(--sage-dark)"
-                  : today
-                  ? "var(--sage-light)"
-                  : "transparent",
-              }}
+        <div className="grid grid-cols-7 gap-1">
+          {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => (
+            <div
+              key={i}
+              className="text-center text-[11px] font-medium py-1"
+              style={{ color: "var(--text-secondary)" }}
             >
-              <span
-                className="text-sm font-medium"
+              {d}
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-7 gap-1">
+          {Array(firstDayOfWeek)
+            .fill(null)
+            .map((_, i) => (
+              <div key={`e-${i}`} />
+            ))}
+
+          {days.map((day) => {
+            const appts = dayAppts(day);
+            const hasAppt = appts.length > 0;
+            const isSelected = selectedDay && isSameDay(day, selectedDay);
+            const today = isToday(day);
+
+            return (
+              <button
+                key={day.toISOString()}
+                onClick={() =>
+                  setSelectedDay(
+                    selectedDay && isSameDay(day, selectedDay) ? null : day
+                  )
+                }
+                className="flex flex-col items-center justify-center h-11 rounded-xl transition-all relative"
                 style={{
-                  color: isSelected
-                    ? "white"
-                    : today
+                  background: isSelected
                     ? "var(--sage-dark)"
-                    : "var(--text-primary)",
+                    : today
+                    ? "var(--sage-light)"
+                    : "transparent",
                 }}
               >
-                {format(day, "d")}
-              </span>
+                <span
+                  className="text-sm font-medium"
+                  style={{
+                    color: isSelected
+                      ? "white"
+                      : today
+                      ? "var(--sage-dark)"
+                      : "var(--text-primary)",
+                  }}
+                >
+                  {format(day, "d")}
+                </span>
 
-              {hasAppt && (
-                <div
-                  className="w-1.5 h-1.5 rounded-full mt-0.5"
-                  style={{ background: isSelected ? "white" : "#C5584A" }}
-                />
-              )}
-            </button>
-          );
-        })}
+                {hasAppt && (
+                  <div
+                    className="w-1.5 h-1.5 rounded-full mt-0.5"
+                    style={{ background: isSelected ? "white" : "#C5584A" }}
+                  />
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {selectedDay && (
@@ -230,17 +240,17 @@ function CalendarContent() {
       )}
 
       {showForm && (
-          <AppointmentForm
-            family={family}
-            user={user}
-            activePatient={activePatient}
-            defaultDate={selectedDay}
-            onClose={() => setShowForm(false)}
-            onSaved={() => {
-              setShowForm(false);
-              loadAppointments();
-            }}
-          />
+        <AppointmentForm
+          family={family}
+          user={user}
+          activePatient={activePatient}
+          defaultDate={selectedDay}
+          onClose={() => setShowForm(false)}
+          onSaved={() => {
+            setShowForm(false);
+            loadAppointments();
+          }}
+        />
       )}
     </div>
   );
@@ -295,7 +305,14 @@ function AppointmentCard({ appointment }) {
   );
 }
 
-function AppointmentForm({ family, user, activePatient, defaultDate, onClose, onSaved }) {
+function AppointmentForm({
+  family,
+  user,
+  activePatient,
+  defaultDate,
+  onClose,
+  onSaved,
+}) {
   const [specialty, setSpecialty] = useState("");
   const [date, setDate] = useState(
     defaultDate
@@ -356,93 +373,65 @@ function AppointmentForm({ family, user, activePatient, defaultDate, onClose, on
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm">
-      <div className="w-full max-w-sm bg-white rounded-t-3xl p-6 pb-10 max-h-[85vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h2
-            className="text-lg font-semibold"
-            style={{ color: "var(--text-primary)" }}
-          >
-            Agendar consulta
-          </h2>
-          <button onClick={onClose}>
-            <X size={20} style={{ color: "var(--text-secondary)" }} />
-          </button>
-        </div>
+    <BottomSheet
+      open={true}
+      title="Agendar consulta"
+      onClose={onClose}
+      scrollContent={false}
+    >
+      <div className="space-y-4 max-h-[72vh] overflow-y-auto pr-1">
+        {[
+          {
+            label: "Especialidade",
+            value: specialty,
+            set: setSpecialty,
+            placeholder: "Ex: Cardiologia, Clínico Geral",
+          },
+          {
+            label: "Local (opcional)",
+            value: location,
+            set: setLocation,
+            placeholder: "Ex: Hospital XYZ",
+          },
+        ].map((f) => (
+          <div key={f.label}>
+            <label
+              className="text-sm font-medium block mb-2"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              {f.label}
+            </label>
+            <input
+              className="w-full h-12 px-4 rounded-xl border text-base outline-none"
+              style={{
+                background: "var(--warm)",
+                border: "1px solid var(--border)",
+              }}
+              placeholder={f.placeholder}
+              value={f.value}
+              onChange={(e) => f.set(e.target.value)}
+            />
+          </div>
+        ))}
 
-        <div className="space-y-4">
-          {[
-            {
-              label: "Especialidade",
-              value: specialty,
-              set: setSpecialty,
-              placeholder: "Ex: Cardiologia, Clínico Geral",
-            },
-            {
-              label: "Local (opcional)",
-              value: location,
-              set: setLocation,
-              placeholder: "Ex: Hospital XYZ",
-            },
-          ].map((f) => (
-            <div key={f.label}>
-              <label
-                className="text-sm font-medium block mb-2"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                {f.label}
-              </label>
-              <input
-                className="w-full h-12 px-4 rounded-xl border text-base outline-none"
-                style={{
-                  background: "var(--warm)",
-                  border: "1px solid var(--border)",
-                }}
-                placeholder={f.placeholder}
-                value={f.value}
-                onChange={(e) => f.set(e.target.value)}
-              />
-            </div>
-          ))}
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label
-                className="text-sm font-medium block mb-2"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                Data
-              </label>
-              <input
-                type="date"
-                className="w-full h-12 px-3 rounded-xl border text-sm outline-none"
-                style={{
-                  background: "var(--warm)",
-                  border: "1px solid var(--border)",
-                }}
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label
-                className="text-sm font-medium block mb-2"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                Hora
-              </label>
-              <input
-                type="time"
-                className="w-full h-12 px-3 rounded-xl border text-sm outline-none"
-                style={{
-                  background: "var(--warm)",
-                  border: "1px solid var(--border)",
-                }}
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-              />
-            </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label
+              className="text-sm font-medium block mb-2"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Data
+            </label>
+            <input
+              type="date"
+              className="w-full h-12 px-3 rounded-xl border text-sm outline-none"
+              style={{
+                background: "var(--warm)",
+                border: "1px solid var(--border)",
+              }}
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+            />
           </div>
 
           <div>
@@ -450,34 +439,53 @@ function AppointmentForm({ family, user, activePatient, defaultDate, onClose, on
               className="text-sm font-medium block mb-2"
               style={{ color: "var(--text-secondary)" }}
             >
-              Observações (opcional)
+              Hora
             </label>
-            <textarea
-              className="w-full p-3 rounded-xl border text-sm resize-none outline-none"
+            <input
+              type="time"
+              className="w-full h-12 px-3 rounded-xl border text-sm outline-none"
               style={{
                 background: "var(--warm)",
                 border: "1px solid var(--border)",
               }}
-              rows={2}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
             />
           </div>
-
-          <button
-            onClick={handleSave}
-            disabled={loading || !specialty.trim()}
-            className="w-full h-14 rounded-2xl text-white font-semibold text-base transition-all active:scale-95"
-            style={{
-              background:
-                specialty.trim() && !loading ? "var(--sage-dark)" : "#C5BDB5",
-            }}
-          >
-            {loading ? "Salvando..." : "Agendar consulta"}
-          </button>
         </div>
+
+        <div>
+          <label
+            className="text-sm font-medium block mb-2"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            Observações (opcional)
+          </label>
+          <textarea
+            className="w-full p-3 rounded-xl border text-sm resize-none outline-none"
+            style={{
+              background: "var(--warm)",
+              border: "1px solid var(--border)",
+            }}
+            rows={2}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+          />
+        </div>
+
+        <button
+          onClick={handleSave}
+          disabled={loading || !specialty.trim()}
+          className="w-full h-14 rounded-2xl text-white font-semibold text-base transition-all active:scale-95"
+          style={{
+            background:
+              specialty.trim() && !loading ? "var(--sage-dark)" : "#C5BDB5",
+          }}
+        >
+          {loading ? "Salvando..." : "Agendar consulta"}
+        </button>
       </div>
-    </div>
+    </BottomSheet>
   );
 }
 

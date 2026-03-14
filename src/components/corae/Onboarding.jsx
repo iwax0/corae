@@ -44,6 +44,7 @@ export default function Onboarding({ user, onComplete }) {
             patient_name: patientName.trim(),
             pin,
             principal_email: user.email,
+            principal_name: responsibleName.trim(),
           },
         ])
         .select()
@@ -57,9 +58,10 @@ export default function Onboarding({ user, onComplete }) {
           {
             family_id: family.id,
             user_email: user.email,
-            user_name: user.full_name || user.email,
+            user_name: responsibleName.trim(),
             role: "principal",
             joined_at: new Date().toISOString(),
+            is_active: true,
           },
         ]);
 
@@ -72,12 +74,15 @@ export default function Onboarding({ user, onComplete }) {
             family_id: family.id,
             name: patientName.trim(),
             birthdate: null,
+            notes: null,
+            is_active: true,
           },
         ]);
 
       if (patientError) throw patientError;
 
-      onComplete();
+      await refreshFamily();
+      navigate("/home", { replace: true });
     } catch (e) {
       console.error("Erro ao criar família:", e);
       setError(e?.message || "Erro ao criar família. Tente novamente.");

@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { X, CheckCircle } from "lucide-react";
+import { CheckCircle } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
+import BottomSheet from "@/components/corae/BottomSheet";
 
 export default function ObservationModal({
   family,
@@ -16,44 +17,38 @@ export default function ObservationModal({
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
 
+  const isBloodPressure = type === "blood_pressure";
+
   async function handleSave() {
     if (!family?.id || !user?.email) return;
 
-    if (type === "observation" && !text.trim()) return;
-
-    if (type === "blood_pressure" && (!extra.sys || !extra.dia)) return;
+    if (!isBloodPressure && !text.trim()) return;
+    if (isBloodPressure && (!extra.sys || !extra.dia)) return;
 
     setLoading(true);
 
     try {
-      const details =
-        type === "blood_pressure"
+      const now = new Date().toISOString();
+
+      const payload = {
+        family_id: family.id,
+        patient_id: activePatient?.id || null,
+        record_type: type,
+        actual_time: now,
+        recorded_by_name: user.full_name || user.email,
+        recorded_by_email: user.email,
+        is_system: false,
+        notes: isBloodPressure ? (text.trim() || null) : text.trim(),
+        details: isBloodPressure
           ? {
-              sys: extra.sys || null,
-              dia: extra.dia || null,
+              sys: extra.sys,
+              dia: extra.dia,
               pulse: extra.pulse || null,
-              notes: text.trim() || null,
             }
-          : null;
+          : null,
+      };
 
-      const notes =
-        type === "blood_pressure"
-          ? `Pressão registrada${text.trim() ? `: ${text.trim()}` : ""}`
-          : text.trim();
-
-      const { error } = await supabase.from("care_records").insert([
-        {
-          family_id: family.id,
-          patient_id: activePatient?.id || null,
-          record_type: type,
-          actual_time: new Date().toISOString(),
-          recorded_by_name: user.full_name || user.email,
-          recorded_by_email: user.email,
-          is_system: false,
-          notes,
-          details,
-        },
-      ]);
+      const { error } = await supabase.from("care_records").insert([payload]);
 
       if (error) throw error;
 
@@ -61,206 +56,148 @@ export default function ObservationModal({
 
       setTimeout(() => {
         onSaved?.();
-      }, 900);
+        onClose?.();
+      }, 1200);
     } catch (err) {
       console.error("Erro ao salvar observação:", err);
-      alert(err?.message || "Erro ao salvar observação.");
+      alert(err?.message || "Erro ao salvar registro.");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm">
-      <div className="w-full max-w-sm bg-white rounded-t-3xl p-6 pb-10">
-        <div className="flex items-center justify-between mb-6">
-          <h2
-            className="text-lg font-semibold"
+    <BottomSheet open={true} title={title} onClose={onClose}>
+      {done ? (
+        <div className="flex flex-col items-center py-8 gap-3">
+          <CheckCircle size={48} style={{ color: "var(--success)" }} />
+          <p
+            className="text-base font-medium"
             style={{ color: "var(--text-primary)" }}
           >
-            {title}
-          </h2>
-          <button onClick={onClose}>
-            <X size={20} style={{ color: "var(--text-secondary)" }} />
-          </button>
+            Registrado com sucesso!
+          </p>
         </div>
-
-        {done ? (
-          <div className="py-8 text-center">
-            <div
-              className="w-14 h-14 rounded-full mx-auto flex items-center justify-center mb-3"
-              style={{ background: "var(--sage-light)" }}
-            >
-              <CheckCircle size={28} style={{ color: "var(--sage-dark)" }} />
-            </div>
-            <p
-              className="text-base font-medium"
-              style={{ color: "var(--text-primary)" }}
-            >
-              Registro salvo com sucesso
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {activePatient?.name && (
-              <div
-                className="p-3 rounded-xl"
-                style={{ background: "var(--sage-light)" }}
-              >
-                <p
-                  className="text-xs font-medium"
-                  style={{ color: "var(--sage-dark)" }}
-                >
-                  Paciente
-                </p>
-                <p
-                  className="text-sm mt-1"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  {activePatient.name}
-                </p>
-              </div>
-            )}
-
-            {type === "blood_pressure" && (
-              <>
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label
-                      className="text-sm font-medium block mb-2"
-                      style={{ color: "var(--text-secondary)" }}
-                    >
-                      Sistólica *
-                    </label>
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      className="w-full h-12 px-3 rounded-xl border text-base outline-none"
-                      style={{
-                        background: "var(--warm)",
-                        border: "1px solid var(--border)",
-                      }}
-                      placeholder="120"
-                      value={extra.sys}
-                      onChange={(e) =>
-                        setExtra((prev) => ({ ...prev, sys: e.target.value }))
-                      }
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      className="text-sm font-medium block mb-2"
-                      style={{ color: "var(--text-secondary)" }}
-                    >
-                      Diastólica *
-                    </label>
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      className="w-full h-12 px-3 rounded-xl border text-base outline-none"
-                      style={{
-                        background: "var(--warm)",
-                        border: "1px solid var(--border)",
-                      }}
-                      placeholder="80"
-                      value={extra.dia}
-                      onChange={(e) =>
-                        setExtra((prev) => ({ ...prev, dia: e.target.value }))
-                      }
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      className="text-sm font-medium block mb-2"
-                      style={{ color: "var(--text-secondary)" }}
-                    >
-                      Pulso
-                    </label>
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      className="w-full h-12 px-3 rounded-xl border text-base outline-none"
-                      style={{
-                        background: "var(--warm)",
-                        border: "1px solid var(--border)",
-                      }}
-                      placeholder="72"
-                      value={extra.pulse}
-                      onChange={(e) =>
-                        setExtra((prev) => ({ ...prev, pulse: e.target.value }))
-                      }
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label
-                    className="text-sm font-medium block mb-2"
-                    style={{ color: "var(--text-secondary)" }}
-                  >
-                    Observações (opcional)
-                  </label>
-                  <textarea
-                    className="w-full p-3 rounded-xl border text-sm resize-none outline-none"
-                    style={{
-                      background: "var(--warm)",
-                      border: "1px solid var(--border)",
-                    }}
-                    rows={3}
-                    placeholder="Ex: medição após repouso, paciente com tontura..."
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
-                  />
-                </div>
-              </>
-            )}
-
-            {type === "observation" && (
+      ) : (
+        <>
+          {isBloodPressure && (
+            <div className="grid grid-cols-3 gap-3 mb-4">
               <div>
                 <label
                   className="text-sm font-medium block mb-2"
                   style={{ color: "var(--text-secondary)" }}
                 >
-                  Observação *
+                  Sistólica
                 </label>
-                <textarea
-                  className="w-full p-3 rounded-xl border text-sm resize-none outline-none"
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  value={extra.sys}
+                  onChange={(e) =>
+                    setExtra((prev) => ({ ...prev, sys: e.target.value }))
+                  }
+                  className="w-full p-3 rounded-2xl border text-sm outline-none"
                   style={{
                     background: "var(--warm)",
                     border: "1px solid var(--border)",
+                    color: "var(--text-primary)",
                   }}
-                  rows={5}
-                  placeholder="Descreva o que aconteceu..."
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
                 />
               </div>
-            )}
 
-            <button
-              onClick={handleSave}
-              disabled={
-                loading ||
-                (type === "observation" && !text.trim()) ||
-                (type === "blood_pressure" && (!extra.sys || !extra.dia))
-              }
-              className="w-full h-14 rounded-2xl text-white font-semibold text-base transition-all active:scale-95"
-              style={{
-                background:
-                  !loading &&
-                  ((type === "observation" && text.trim()) ||
-                    (type === "blood_pressure" && extra.sys && extra.dia))
-                    ? "var(--sage-dark)"
-                    : "#C5BDB5",
-              }}
+              <div>
+                <label
+                  className="text-sm font-medium block mb-2"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  Diastólica
+                </label>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  value={extra.dia}
+                  onChange={(e) =>
+                    setExtra((prev) => ({ ...prev, dia: e.target.value }))
+                  }
+                  className="w-full p-3 rounded-2xl border text-sm outline-none"
+                  style={{
+                    background: "var(--warm)",
+                    border: "1px solid var(--border)",
+                    color: "var(--text-primary)",
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  className="text-sm font-medium block mb-2"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  Pulso
+                </label>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  value={extra.pulse}
+                  onChange={(e) =>
+                    setExtra((prev) => ({ ...prev, pulse: e.target.value }))
+                  }
+                  className="w-full p-3 rounded-2xl border text-sm outline-none"
+                  style={{
+                    background: "var(--warm)",
+                    border: "1px solid var(--border)",
+                    color: "var(--text-primary)",
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="mb-4">
+            <label
+              className="text-sm font-medium block mb-2"
+              style={{ color: "var(--text-secondary)" }}
             >
-              {loading ? "Salvando..." : "Salvar registro"}
-            </button>
+              {isBloodPressure ? "Observação (opcional)" : "Observação"}
+            </label>
+
+            <textarea
+              className="w-full p-3 rounded-2xl border text-sm resize-none outline-none"
+              style={{
+                background: "var(--warm)",
+                border: "1px solid var(--border)",
+                color: "var(--text-primary)",
+              }}
+              rows={isBloodPressure ? 3 : 4}
+              placeholder={
+                isBloodPressure
+                  ? "Ex: paciente estava em repouso..."
+                  : "Digite a observação..."
+              }
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+            />
           </div>
-        )}
-      </div>
-    </div>
+
+          <button
+            onClick={handleSave}
+            disabled={
+              loading ||
+              (isBloodPressure ? !extra.sys || !extra.dia : !text.trim())
+            }
+            className="w-full h-14 rounded-2xl text-white font-semibold text-base transition-all active:scale-95"
+            style={{
+              background:
+                !loading &&
+                (isBloodPressure ? extra.sys && extra.dia : text.trim())
+                  ? "var(--sage-dark)"
+                  : "#C5BDB5",
+            }}
+          >
+            {loading ? "Salvando..." : "Confirmar registro"}
+          </button>
+        </>
+      )}
+    </BottomSheet>
   );
 }

@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/api/supabaseClient";
-import { Plus, X, AlertCircle } from "lucide-react";
+import { Plus, AlertCircle } from "lucide-react";
 import { useApp } from "@/lib/AuthContext";
 import MedicationCard from "@/components/corae/MedicationCard";
 import PinModal from "@/components/corae/PinModal";
+import BottomSheet from "@/components/corae/BottomSheet";
 import { format } from "date-fns";
 
 function MedicationsContent() {
@@ -16,9 +17,9 @@ function MedicationsContent() {
   const [loading, setLoading] = useState(true);
   const [members, setMembers] = useState([]);
 
-    useEffect(() => {
-      loadData();
-    }, [family?.id, activePatient?.id]);
+  useEffect(() => {
+    loadData();
+  }, [family?.id, activePatient?.id]);
 
   async function loadData() {
     if (!family?.id) {
@@ -107,28 +108,25 @@ function MedicationsContent() {
   if (!family) return null;
 
   if (!activePatient) {
-  return (
-    <div className="p-4 space-y-4">
-      <div className="flex items-center justify-between pt-2">
-        <h1
-          className="text-2xl font-semibold"
-          style={{ color: "var(--text-primary)" }}
-        >
-          Medicamentos
-        </h1>
-      </div>
+    return (
+      <div className="p-4 space-y-4">
+        <div className="flex items-center justify-between pt-2">
+          <h1
+            className="text-2xl font-semibold"
+            style={{ color: "var(--text-primary)" }}
+          >
+            Medicamentos
+          </h1>
+        </div>
 
-      <div className="text-center py-12">
-        <p
-          className="text-base"
-          style={{ color: "var(--text-secondary)" }}
-        >
-          Selecione um paciente para visualizar os medicamentos.
-        </p>
+        <div className="text-center py-12">
+          <p className="text-base" style={{ color: "var(--text-secondary)" }}>
+            Selecione um paciente para visualizar os medicamentos.
+          </p>
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
   return (
     <div className="p-4 space-y-4">
@@ -167,10 +165,7 @@ function MedicationsContent() {
         <>
           {active.length === 0 && (
             <div className="text-center py-12">
-              <p
-                className="text-base"
-                style={{ color: "var(--text-secondary)" }}
-              >
+              <p className="text-base" style={{ color: "var(--text-secondary)" }}>
                 Nenhum medicamento ativo.
               </p>
 
@@ -267,28 +262,22 @@ function MedForm({
   const [name, setName] = useState(med?.name || "");
   const [dosage, setDosage] = useState(med?.dosage || "");
   const [type, setType] = useState(med?.type || "fixed");
-  const [fixedTimes, setFixedTimes] = useState(
-    med?.fixed_times?.join(", ") || ""
-  );
-  const [intervalHours, setIntervalHours] = useState(
-    med?.interval_hours || 8
-  );
+  const [fixedTimes, setFixedTimes] = useState(med?.fixed_times?.join(", ") || "");
+  const [intervalHours, setIntervalHours] = useState(med?.interval_hours || 8);
   const [durationType, setDurationType] = useState(
     med?.duration_type || "continuous"
   );
-  const [durationDays, setDurationDays] = useState(
-    med?.duration_days || 7
-  );
+  const [durationDays, setDurationDays] = useState(med?.duration_days || 7);
   const [startDate, setStartDate] = useState(
     med?.start_date || format(new Date(), "yyyy-MM-dd")
   );
-  const [instructions, setInstructions] = useState(
-    med?.instructions || ""
-  );
+  const [instructions, setInstructions] = useState(med?.instructions || "");
   const [loading, setLoading] = useState(false);
 
   async function handleSave() {
-    if (!name.trim() || !dosage.trim() || !family?.id || !activePatient?.id) return;
+    if (!name.trim() || !dosage.trim() || !family?.id || !activePatient?.id) {
+      return;
+    }
 
     setLoading(true);
 
@@ -308,8 +297,7 @@ function MedForm({
             : [],
         interval_hours: type === "interval" ? Number(intervalHours) : null,
         duration_type: durationType,
-        duration_days:
-          durationType === "days" ? Number(durationDays) : null,
+        duration_days: durationType === "days" ? Number(durationDays) : null,
         start_date: startDate,
         is_active: true,
         instructions: instructions.trim() || null,
@@ -388,20 +376,13 @@ function MedForm({
   const isPrincipal = member?.role === "principal";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm">
-      <div className="w-full max-w-sm bg-white rounded-t-3xl p-6 pb-10 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h2
-            className="text-lg font-semibold"
-            style={{ color: "var(--text-primary)" }}
-          >
-            {med ? "Medicamento" : "Novo medicamento"}
-          </h2>
-          <button onClick={onClose}>
-            <X size={20} style={{ color: "var(--text-secondary)" }} />
-          </button>
-        </div>
-
+    <BottomSheet
+      open={true}
+      title={med ? "Medicamento" : "Novo medicamento"}
+      onClose={onClose}
+      scrollContent={false}
+    >
+      <div className="pb-6">
         {!isPrincipal && (
           <div
             className="mb-4 p-3 rounded-xl flex items-start gap-2"
@@ -412,13 +393,13 @@ function MedForm({
               style={{ color: "var(--warning)", marginTop: 2 }}
             />
             <p className="text-xs" style={{ color: "#8A5A1A" }}>
-              Apenas o Responsável Principal pode editar medicamentos. Você
-              pode sugerir uma alteração.
+              Apenas o Responsável Principal pode editar medicamentos. Você pode
+              sugerir uma alteração.
             </p>
           </div>
         )}
 
-        <div className="space-y-4">
+        <div className="space-y-4 max-h-[72vh] overflow-y-auto pr-1">
           <Field label="Nome do medicamento">
             <input
               className="w-full h-12 px-4 rounded-xl border text-base outline-none"
@@ -456,6 +437,7 @@ function MedForm({
                   ].map((o) => (
                     <button
                       key={o.v}
+                      type="button"
                       onClick={() => setType(o.v)}
                       className="flex-1 h-11 rounded-xl text-sm font-medium transition-all"
                       style={{
@@ -504,11 +486,12 @@ function MedForm({
                 <div className="flex flex-col gap-2">
                   {[
                     { v: "continuous", l: "Uso contínuo" },
-                    { v: "days", l: "Por X dias" },
                     { v: "once", l: "Apenas uma vez" },
+                    { v: "days", l: "Por X dias" },
                   ].map((o) => (
                     <button
                       key={o.v}
+                      type="button"
                       onClick={() => setDurationType(o.v)}
                       className="w-full h-11 rounded-xl text-sm font-medium transition-all text-left px-4"
                       style={{
@@ -599,7 +582,7 @@ function MedForm({
           )}
         </div>
       </div>
-    </div>
+    </BottomSheet>
   );
 }
 
